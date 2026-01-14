@@ -13,23 +13,26 @@ async def create_user(user: dict):
 
 # login
 @app.post("/auth/tokens")
-async def get_auth_tokens(token: str):
+async def get_auth_tokens():
     pass
 
 
 # edit profile
+# Depends를 활용한 의존성 주입으로 구현
 @app.patch("/users/me")
 async def update_my_account():
     pass
 
 
 # get my profile
+# Depends를 활용한 의존성 주입으로 구현
 @app.get("/users/me")
 async def get_my_account():
     pass
 
 
 # delete account
+# Depends를 활용한 의존성 주입으로 구현
 @app.delete("/users/me")
 async def delete_my_account():
     pass
