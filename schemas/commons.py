@@ -20,6 +20,12 @@ PostId = Annotated[
     ),
 ]
 
+Page = Annotated[
+    int,
+    Field(default=1, ge=1, le=10000, description="조회할 페이지 번호"),
+]
+
+
 class Pagination(BaseModel):
-    page: Annotated[int, Field(default=1, ge=1, le=10000, description="조회할 페이지 번호")]
+    page: Page
     total: Annotated[int, Field(ge=0)]
