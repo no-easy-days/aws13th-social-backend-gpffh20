@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from pydantic import Field, BaseModel
+from pydantic import Field, BaseModel, StringConstraints
 
 UserId = Annotated[
     str,
@@ -20,9 +20,23 @@ PostId = Annotated[
     ),
 ]
 
+CommentId = Annotated[
+    str,
+    Field(
+        pattern=r"^comment_\d+$",
+        description="댓글 ID",
+        examples=["comment_123"],
+    )
+]
+
 Page = Annotated[
     int,
     Field(default=1, ge=1, le=10000, description="조회할 페이지 번호"),
+]
+
+Content = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=2000),
 ]
 
 

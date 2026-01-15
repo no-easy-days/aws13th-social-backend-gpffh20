@@ -3,19 +3,15 @@ from typing import Annotated, Literal
 
 from pydantic import StringConstraints, BaseModel, Field, model_validator
 
-from schemas.commons import PostId, UserId, Pagination, Page
+from schemas.commons import PostId, UserId, Pagination, Page, Content
 
 Title = Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=1, max_length=50),
 ]
 
-Content = Annotated[
-    str,
-    StringConstraints(strip_whitespace=True, min_length=1, max_length=2000),
-]
-
 Count = Annotated[int, Field(ge=0)]
+
 
 class PostListItem(BaseModel):
     id: PostId
@@ -61,5 +57,3 @@ class PostUpdateRequest(BaseModel):
         if self.title is None and self.content is None:
             raise ValueError("수정할 필드가 없습니다.")
         return self
-
-
