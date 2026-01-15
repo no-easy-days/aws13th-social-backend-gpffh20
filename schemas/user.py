@@ -13,11 +13,22 @@ Password = Annotated[
     ),
 ]
 
+Nickname = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True,
+        min_length=1,
+        max_length=10,
+        pattern=r"^[A-Za-z0-9]+$",
+        error_message="닉네임은 1~10자의 영문 대소문자 및 숫자만 사용할 수 있습니다",
+    ),
+]
+
 
 class UserCreateRequest(BaseModel):
     email: EmailStr
     password: Password
-    nickname: str
+    nickname: Nickname
     profile_img: str | None = None
 
 
@@ -25,7 +36,8 @@ class UserCreateResponse(BaseModel):
     model_config = {"from_attributes": True}
 
     id: int
-    nickname: str
+    nickname: Nickname
+    email: EmailStr
     created_at: datetime
 
 
@@ -45,13 +57,13 @@ class UserMyProfile(BaseModel):
 
     id: int
     email: EmailStr
-    nickname: str
+    nickname: Nickname
     profile_img: str | None = None
     created_at: datetime
 
 
 class UserUpdateRequest(BaseModel):
-    nickname: str | None = None
+    nickname: Nickname | None = None
     profile_img: str | None = None
 
     @model_validator(mode='after')
@@ -65,5 +77,5 @@ class UserProfile(BaseModel):
     model_config = {"from_attributes": True}
 
     id: int
-    nickname: str
+    nickname: Nickname
     profile_img: str | None = None
