@@ -387,5 +387,4 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
-prac.py
 # End of https://www.toptal.com/developers/gitignore/api/venv,macos,windows,pycharm+all,intellij+all,python
