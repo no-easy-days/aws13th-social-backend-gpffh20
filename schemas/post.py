@@ -3,14 +3,7 @@ from typing import Annotated, Literal
 
 from pydantic import StringConstraints, BaseModel, Field, model_validator
 
-from schemas.commons import PostId, UserId, Pagination, Page, Content
-
-Title = Annotated[
-    str,
-    StringConstraints(strip_whitespace=True, min_length=1, max_length=50),
-]
-
-Count = Annotated[int, Field(ge=0)]
+from schemas.commons import PostId, UserId, Pagination, Page, Content, Title, Count
 
 
 class PostListItem(BaseModel):

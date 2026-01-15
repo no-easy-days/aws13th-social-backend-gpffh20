@@ -38,6 +38,12 @@ Content = Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=1, max_length=2000),
 ]
+Title = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=50),
+]
+
+Count = Annotated[int, Field(ge=0)]
 
 
 class Pagination(BaseModel):
