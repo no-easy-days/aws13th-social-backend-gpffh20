@@ -68,7 +68,4 @@ class PostUpdateRequest(BaseModel):
             raise ValueError("수정할 필드가 없습니다.")
         return self
 
-class ListMyPostsResponse(BaseModel):
-    data: list[PostListItem]
-    pagination: Pagination
 
