@@ -63,7 +63,7 @@ async def create_post(post: dict):
 
 # post list I wrote
 @app.get("/posts/me")
-async def get_posts_mine(page: int = 1):
+async def get_posts_mine(page: Page):
     pass
 
 
