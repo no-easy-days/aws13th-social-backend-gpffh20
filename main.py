@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 
+from schemas.commons import UserId, PostId
+
 app = FastAPI()
 
 
@@ -40,7 +42,7 @@ async def delete_my_account():
 
 # get a specific user
 @app.get("/users/{user_id}")
-async def get_specific_user(user_id: int):
+async def get_specific_user(user_id: UserId):
     pass
 
 
@@ -70,19 +72,19 @@ async def get_posts_mine(page: int = 1):
 
 # get a single post
 @app.get("/posts/{post_id}")
-async def get_single_post(post_id: int):
+async def get_single_post(post_id: PostId):
     pass
 
 
 # edit post
 @app.patch("/posts/{post_id}")
-async def update_post(post_id: int):
+async def update_post(post_id: PostId):
     pass
 
 
 # delete post
 @app.delete("/posts/{post_id}")
-async def delete_post(post_id: int):
+async def delete_post(post_id: PostId):
     pass
 
 
@@ -90,23 +92,23 @@ async def delete_post(post_id: int):
 
 # List all comments for a post
 @app.get("/posts/{post_id}/comments")
-async def get_comments(post_id: int, page: int = 1):
+async def get_comments(post_id: PostId, page: int = 1):
     pass
 
 
 # post comment
 @app.post("/posts/{post_id}/comments")
-async def post_comment(post_id: int):
+async def post_comment(post_id: PostId):
     pass
 
 # edit comment
 @app.patch("/posts/{post_id}/comments/{comment_id}")
-async def update_comment(post_id: int, comment_id: int):
+async def update_comment(post_id: PostId, comment_id: int):
     pass
 
 # delete comment
 @app.delete("/posts/{post_id}/comments/{comment_id}")
-async def delete_comment(post_id: int, comment_id: int):
+async def delete_comment(post_id: PostId, comment_id: int):
     pass
 
 
@@ -120,17 +122,17 @@ async def get_comments_mine(page: int = 1):
 
 # register like
 @app.post("/posts/{post_id}/likes")
-async def post_like(post_id: int):
+async def post_like(post_id: PostId):
     pass
 
 # delete like
 @app.delete("/posts/{post_id}/likes")
-async def delete_like(post_id: int):
+async def delete_like(post_id: PostId):
     pass
 
 # check like status
 @app.get("/posts/{post_id}/likes")
-async def get_likes_status(post_id: int):
+async def get_likes_status(post_id: PostId):
     pass
 
 # post list I liked
