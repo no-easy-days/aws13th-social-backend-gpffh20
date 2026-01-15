@@ -81,3 +81,4 @@ class UserProfile(BaseModel):
     id: int
     nickname: Nickname
     profile_img: str | None = None
+
