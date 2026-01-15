@@ -1,6 +1,5 @@
 from datetime import datetime
 
-# - [ ]  **내가 좋아요한 게시글 목록**: 로그인한 사용자가 좋아요 누른 게시글들 조회
 from pydantic import BaseModel
 
 from schemas.commons import PostId, UserId, Pagination
