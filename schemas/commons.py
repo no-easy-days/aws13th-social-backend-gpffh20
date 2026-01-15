@@ -28,4 +28,4 @@ Page = Annotated[
 
 class Pagination(BaseModel):
     page: Page
-    total: Annotated[int, Field(ge=0)]
+    total: Annotated[int, Field(ge=0, description="전체 페이지 수")]
