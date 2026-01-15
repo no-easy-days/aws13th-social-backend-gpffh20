@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel
 
 from schemas.commons import Content, CommentId, Pagination, PostId, UserId
 
