@@ -10,7 +10,7 @@ app = FastAPI()
 
 # signup
 @app.post("/users")
-async def create_user(user: dict):`
+async def create_user(user: dict):
     pass
 
 
