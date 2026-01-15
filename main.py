@@ -20,14 +20,14 @@ async def get_auth_tokens():
 # edit profile
 # Depends를 활용한 의존성 주입으로 구현
 @app.patch("/users/me")
-async def update_my_account():
+async def update_my_profile():
     pass
 
 
 # get my profile
 # Depends를 활용한 의존성 주입으로 구현
 @app.get("/users/me")
-async def get_my_account():
+async def get_my_profile():
     pass
 
 
