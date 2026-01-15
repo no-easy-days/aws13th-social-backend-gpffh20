@@ -11,7 +11,7 @@ class LikedListItem(BaseModel):
     author: UserId
     title: Title
     view_count: Count
-    like_cound: Count
+    like_count: Count
     created_at: datetime
 
 
