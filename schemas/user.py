@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from pydantic import BaseModel, EmailStr, model_validator, StringConstraints
-from typing_extensions import Annotated
+from typing import Annotated
 
 Password = Annotated[
     str,
