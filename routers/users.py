@@ -29,7 +29,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 @router.post("/users", response_model=UserCreateResponse)
-async def create_user(user: UserCreateRequest):
+def create_user(user: UserCreateRequest):
     """회원가입"""
     users = read_json(USERS_FILE)
 
