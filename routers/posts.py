@@ -3,7 +3,9 @@ from fastapi import APIRouter, Depends
 from schemas.commons import Page, PostId
 from schemas.post import ListPostsQuery
 
-router = APIRouter()
+router = APIRouter(
+    tags=["POSTS"],
+)
 
 
 # List, search, sort posts

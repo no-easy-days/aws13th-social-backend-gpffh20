@@ -2,7 +2,9 @@ from fastapi import APIRouter
 
 from schemas.commons import PostId, Page, CommentId
 
-router = APIRouter()
+router = APIRouter(
+    tags=["COMMENTS"],
+)
 
 
 # List all comments for a post

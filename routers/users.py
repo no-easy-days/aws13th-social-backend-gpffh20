@@ -2,7 +2,9 @@ from fastapi import APIRouter
 
 from schemas.commons import UserId
 
-router = APIRouter()
+router = APIRouter(
+    tags=["USERS"],
+)
 
 
 # signup

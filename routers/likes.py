@@ -2,7 +2,9 @@ from fastapi import APIRouter
 
 from schemas.commons import PostId, Page
 
-router = APIRouter()
+router = APIRouter(
+    tags=["LIKES"],
+)
 
 
 # register like
