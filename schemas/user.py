@@ -7,18 +7,22 @@ from typing import Annotated
 from schemas.commons import UserId
 
 SPECIAL_CHARS = r"!\"#$%&'()*+,\-./:;<=>?@\[₩\]\^_`{|}~"
+_RE_UPPER = re.compile(r"[A-Z]")
+_RE_LOWER = re.compile(r"[a-z]")
+_RE_DIGIT = re.compile(r"\d")
+_RE_SPECIAL = re.compile(rf"[{SPECIAL_CHARS}]")
 
 
-def validate_password(v: str) -> str:
-    if not re.search(r"[A-Z]", v):
+def validate_password(password: str) -> str:
+    if not _RE_UPPER.search(password):
         raise ValueError("비밀번호에 대문자가 포함되어야 합니다")
-    if not re.search(r"[a-z]", v):
+    if not _RE_LOWER.search(password):
         raise ValueError("비밀번호에 소문자가 포함되어야 합니다")
-    if not re.search(r"\d", v):
+    if not _RE_DIGIT.search(password):
         raise ValueError("비밀번호에 숫자가 포함되어야 합니다")
-    if not re.search(rf"[{SPECIAL_CHARS}]", v):
+    if not _RE_SPECIAL.search(password):
         raise ValueError("비밀번호에 특수문자가 포함되어야 합니다")
-    return v
+    return password
 
 
 Password = Annotated[
@@ -87,4 +91,3 @@ class UserProfile(BaseModel):
     id: UserId
     nickname: Nickname
     profile_img: str | None = None
-
