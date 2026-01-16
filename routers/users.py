@@ -1,3 +1,4 @@
+import uuid
 import hashlib
 from datetime import datetime, UTC
 from pathlib import Path
@@ -40,7 +41,7 @@ async def create_user(user: UserCreateRequest):
         )
 
     # 새 유저 ID 생성
-    new_id = f"user_{len(users) + 1}"
+    new_id = f"user_{uuid.uuid4().hex[:8]}"
     now = datetime.now(UTC)
 
     new_user = {
