@@ -59,13 +59,12 @@ def get_posts(query: ListPostsQuery = Depends()):
     posts.sort(key=lambda p: p.get(query.sort, 0), reverse=reverse)
 
     # 페이지네이션
-    page_size = PAGE_SIZE
     total_posts = len(posts)
-    total_pages = max(1, (total_posts + page_size - 1) // page_size)
+    total_pages = max(1, (total_posts + PAGE_SIZE - 1) // PAGE_SIZE)
     page = min(query.page, total_pages)
 
-    start = (page - 1) * page_size
-    end = start + page_size
+    start = (page - 1) * PAGE_SIZE
+    end = start + PAGE_SIZE
     paginated_posts = posts[start:end]
 
     return ListPostsResponse(
