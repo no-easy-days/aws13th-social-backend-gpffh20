@@ -14,6 +14,7 @@ from schemas.post import (
     ListPostsResponse,
     PostDetail)
 from utils.data import read_json, write_json
+from utils.pagination import paginate
 
 PAGE_SIZE = 20
 
@@ -60,13 +61,7 @@ def get_posts(query: ListPostsQuery = Depends()):
     posts.sort(key=lambda p: p.get(query.sort, 0), reverse=reverse)
 
     # 페이지네이션
-    total_posts = len(posts)
-    total_pages = max(1, (total_posts + PAGE_SIZE - 1) // PAGE_SIZE)
-    page = min(query.page, total_pages)
-
-    start = (page - 1) * PAGE_SIZE
-    end = start + PAGE_SIZE
-    paginated_posts = posts[start:end]
+    paginated_posts, page, total_pages = paginate(posts, query.page, PAGE_SIZE)
 
     return ListPostsResponse(
         data=[PostListItem(**p) for p in paginated_posts],
@@ -110,13 +105,7 @@ def get_posts_mine(user_id: CurrentUserId, page: Page = 1):
     my_posts.sort(key=lambda p: p["created_at"], reverse=True)
 
     # 페이지네이션
-    total_posts = len(my_posts)
-    total_pages = max(1, (total_posts + PAGE_SIZE - 1) // PAGE_SIZE)
-    page = min(page, total_pages)
-
-    start = (page - 1) * PAGE_SIZE
-    end = start + PAGE_SIZE
-    paginated_posts = my_posts[start:end]
+    paginated_posts, page, total_pages = paginate(my_posts, page, PAGE_SIZE)
 
     return ListPostsResponse(
         data=[PostListItem(**p) for p in paginated_posts],
