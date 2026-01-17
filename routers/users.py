@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, UTC
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Response
 
 from config import settings
 from schemas.commons import UserId
@@ -149,3 +149,4 @@ def delete_my_account(user_id: CurrentUserId):
 
     users.pop(user_index)
     write_json(settings.users_file, users)
+    Response(status_code=status.HTTP_204_NO_CONTENT)

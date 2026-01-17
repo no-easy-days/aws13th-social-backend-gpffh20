@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, UTC
 
-from fastapi import APIRouter, Depends, status, HTTPException
+from fastapi import APIRouter, Depends, status, HTTPException, Response
 
 from config import settings
 from routers.users import CurrentUserId
@@ -101,3 +101,4 @@ def delete_post(author_id: CurrentUserId, post_id: PostId):
 
     posts.pop(post_index)
     write_json(settings.posts_file, posts)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
