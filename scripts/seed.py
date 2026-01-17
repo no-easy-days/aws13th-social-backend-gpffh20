@@ -59,15 +59,6 @@ def seed_users():
 
 def seed():
     """모든 테스트 데이터 생성"""
-
-    def seed():
-        """모든 테스트 데이터 생성"""
-        if USERS_FILE.exists():
-            confirm = input("⚠️  기존 데이터가 있습니다. 덮어쓰시겠습니까? (y/N): ")
-        if confirm.lower() != 'y':
-            print("취소되었습니다.")
-            return
-
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     # Users
