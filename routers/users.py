@@ -150,3 +150,20 @@ def get_specific_user(user_id: UserId):
         "nickname": user["nickname"],
         "profile_img": user["profile_img"],
     }
+
+
+# TODO: user 관련 댓글, 게시글, 좋아요 같이 삭제하기
+@router.delete("/users/me", status_code=status.HTTP_204_NO_CONTENT)
+def delete_my_account(user_id: CurrentUserId):
+    """회원 탈퇴"""
+    users = read_json(settings.users_file)
+
+    user_index = next((i for i, u in enumerate(users) if u["id"] == user_id), None)
+    if user_index is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    users.pop(user_index)
+    write_json(settings.users_file, users)
