@@ -1,1 +1,18 @@
-[]
+[
+  {
+    "id": "user_a7364df2",
+    "email": "user123@example.com",
+    "nickname": "CLB8l3PiJM",
+    "password": "$2b$12$1yEJOFfZWL27TPgawltyGOq4pxIN1xViO2TfWy0xqpo3DuR/h0SOy",
+    "profile_img": "string",
+    "created_at": "2026-01-17T01:02:59.974640+00:00"
+  },
+  {
+    "id": "user_2999d665",
+    "email": "user12@example.com",
+    "nickname": "CLB8l3PiJM",
+    "password": "$2b$12$zZ1A69svFwXDg.pfuHeaz.6sLla95.usCkSKnSGtg4rzafQ8MIuFq",
+    "profile_img": "string",
+    "created_at": "2026-01-17T01:24:12.833229+00:00"
+  }
+]

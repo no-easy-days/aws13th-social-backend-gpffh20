@@ -1,55 +1,24 @@
-import hmac
-import os
 import uuid
-import hashlib
 from datetime import datetime, UTC
-from pathlib import Path
 
-import bcrypt
 from fastapi import APIRouter, HTTPException, status
 
+from config import settings
 from schemas.commons import UserId
-from schemas.user import UserCreateRequest, UserCreateResponse
+from schemas.user import UserCreateRequest, UserCreateResponse, UserLoginRequest, UserLoginResponse
+from utils.auth import hash_password, verify_password, create_access_token, DUMMY_HASH
 from utils.data import read_json, write_json
-
-USERS_FILE = Path("data/users.json")
-
-PEPPER = os.getenv("PASSWORD_PEPPER")
-if not PEPPER:
-    raise RuntimeError("PASSWORD_PEPPER is not set")
 
 router = APIRouter(
     tags=["USERS"],
 )
 
 
-def _prehash(password: str) -> bytes:
-    """
-    HMAC-SHA256으로 사전 해싱
-    - bcrypt 72바이트 제한 우회
-    - PEPPER로 password shucking 공격 방지
-    """
-    return hmac.new(
-        key=PEPPER.encode(),
-        msg=password.encode(),
-        digestmod="sha256"
-    ).hexdigest().encode()
-
-def hash_password(password: str) -> str:
-    prehashed = _prehash(password)
-    return bcrypt.hashpw(prehashed, bcrypt.gensalt()).decode()
-
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    prehashed = _prehash(plain_password)
-    return bcrypt.checkpw(prehashed, hashed_password.encode())
-
-
 @router.post("/users", response_model=UserCreateResponse,
              status_code=status.HTTP_201_CREATED)
 def create_user(user: UserCreateRequest):
     """회원가입"""
-    users = read_json(USERS_FILE)
+    users = read_json(settings.users_file)
 
     # 이메일 중복 확인
     if any(u["email"] == user.email for u in users):
@@ -72,7 +41,7 @@ def create_user(user: UserCreateRequest):
     }
 
     users.append(new_user)
-    write_json(USERS_FILE, users)
+    write_json(settings.users_file, users)
 
     return {
         "id": new_id,
@@ -83,9 +52,28 @@ def create_user(user: UserCreateRequest):
 
 
 # login
-@router.post("/auth/tokens")
-async def get_auth_tokens():
-    return {"success": "get_auth_tokens"}
+@router.post("/auth/tokens", response_model=UserLoginResponse,
+             status_code=status.HTTP_200_OK)
+def get_auth_tokens(user: UserLoginRequest):
+    """로그인"""
+    users = read_json(settings.users_file)
+
+    # 이메일로 유저 찾기
+    db_user = next((u for u in users if u["email"] == user.email), None)
+
+    # 타이밍 공격 방지: 유저 존재 여부와 관계없이 항상 해시 비교 수행
+    hashed_password = db_user["password"] if db_user else DUMMY_HASH
+    is_password_correct = verify_password(user.password, hashed_password)
+
+    if not db_user or not is_password_correct:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+        )
+
+    # 토큰 생성
+    access_token = create_access_token(data={"sub": db_user["id"]})
+    return {"access_token": access_token, "token_type": "bearer"}
 
 
 # edit profile
