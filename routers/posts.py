@@ -15,6 +15,8 @@ from schemas.post import (
     PostDetail)
 from utils.data import read_json, write_json
 
+PAGE_SIZE = 20
+
 router = APIRouter(
     tags=["POSTS"],
 )
@@ -57,7 +59,7 @@ def get_posts(query: ListPostsQuery = Depends()):
     posts.sort(key=lambda p: p[query.sort], reverse=reverse)
 
     # 페이지네이션
-    page_size = 20
+    page_size = PAGE_SIZE
     total_posts = len(posts)
     total_pages = max(1, (total_posts + page_size - 1) // page_size)
     page = min(query.page, total_pages)
@@ -70,6 +72,7 @@ def get_posts(query: ListPostsQuery = Depends()):
         data=paginated_posts,
         pagination=Pagination(page=page, total=total_pages)
     )
+
 
 # TODO: id가 아닌 닉네임이 표시되게 하기
 @router.post("/posts", response_model=PostListItem,
