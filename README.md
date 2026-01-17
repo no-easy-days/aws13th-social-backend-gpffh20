@@ -40,7 +40,7 @@
   fastapi dev main.py
 ```
 
-Swagger UI: http://127.0.0.1:8000/docs
+Swagger UI: <http://127.0.0.1:8000/docs>
 
 ## 테스트 계정
 
