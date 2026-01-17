@@ -49,8 +49,8 @@ def get_posts(query: ListPostsQuery = Depends()):
     posts = read_json(settings.posts_file)
 
     # 검색
-    q_lower = query.q.lower()
     if query.q:
+        q_lower = query.q.lower()
         posts = [
             p for p in posts
             if q_lower in p["title"].lower() or q_lower in p["content"].lower()
