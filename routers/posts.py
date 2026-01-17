@@ -1,12 +1,12 @@
 import uuid
 from datetime import datetime, UTC
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, HTTPException
 
 from config import settings
 from routers.users import CurrentUserId
 from schemas.commons import Page, PostId
-from schemas.post import ListPostsQuery, PostCreateRequest, PostListItem
+from schemas.post import ListPostsQuery, PostCreateRequest, PostListItem, PostUpdateRequest
 from utils.data import read_json, write_json
 
 router = APIRouter(
@@ -22,7 +22,7 @@ async def get_posts(query: ListPostsQuery = Depends()):
 
 @router.post("/posts", response_model=PostListItem,
              status_code=status.HTTP_201_CREATED)
-async def create_post(author_id: CurrentUserId, post: PostCreateRequest):
+def create_post(author_id: CurrentUserId, post: PostCreateRequest):
     """ 게시글 생성 """
     posts = read_json(settings.posts_file)
 
@@ -57,10 +57,32 @@ async def get_single_post(post_id: PostId):
     return {"success": "get_single_post"}
 
 
-# edit post
 @router.patch("/posts/{post_id}")
-async def update_post(post_id: PostId):
-    return {"success": "update_post"}
+def update_post(author_id: CurrentUserId, post_id: PostId, update_data: PostUpdateRequest):
+    """게시글 수정"""
+    posts = read_json(settings.posts_file)
+
+    post_index = next((i for i, p in enumerate(posts) if p["id"] == post_id), None)
+    if post_index is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="post not found"
+        )
+    if posts[post_index]["author"] != author_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="not authorized to update this post"
+        )
+    if update_data.title is not None:
+        posts[post_index]["title"] = update_data.title
+    if update_data.content is not None:
+        posts[post_index]["content"] = update_data.content
+
+    posts[post_index]["updated_at"] = datetime.now(UTC).isoformat()
+
+    write_json(settings.posts_file, posts)
+
+    return posts[post_index]
 
 
 # delete post
