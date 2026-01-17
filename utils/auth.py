@@ -25,6 +25,10 @@ def hash_password(password: str) -> str:
     return bcrypt.hashpw(prehashed, bcrypt.gensalt()).decode()
 
 
+# 타이밍 공격 방지용 더미 해시
+DUMMY_HASH = hash_password("dummy_password_for_timing_attack_prevention")
+
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     prehashed = _prehash(plain_password)
     return bcrypt.checkpw(prehashed, hashed_password.encode())

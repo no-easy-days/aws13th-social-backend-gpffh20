@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, status
 from config import settings
 from schemas.commons import UserId
 from schemas.user import UserCreateRequest, UserCreateResponse, UserLoginRequest, UserLoginResponse
-from utils.auth import hash_password, verify_password, create_access_token
+from utils.auth import hash_password, verify_password, create_access_token, DUMMY_HASH
 from utils.data import read_json, write_json
 
 
@@ -61,14 +61,12 @@ def get_auth_tokens(user: UserLoginRequest):
 
     # 이메일로 유저 찾기
     db_user = next((u for u in users if u["email"] == user.email), None)
-    if not db_user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-        )
 
-    # 비밀번호 검증
-    if not verify_password(user.password, db_user["password"]):
+    # 타이밍 공격 방지: 유저 존재 여부와 관계없이 항상 해시 비교 수행
+    hashed_password = db_user["password"] if db_user else DUMMY_HASH
+    is_password_correct = verify_password(user.password, hashed_password)
+
+    if not db_user or not is_password_correct:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
