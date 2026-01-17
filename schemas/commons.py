@@ -7,7 +7,7 @@ UserId = Annotated[
     Field(
         pattern=r"^user_[a-f0-9]+$",
         description="사용자 ID",
-        examples=["user_123"],
+        examples=["user_a1b2c3d4"],
     ),
 ]
 
