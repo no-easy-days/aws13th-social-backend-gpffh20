@@ -1,7 +1,6 @@
 import hmac
 import os
 import uuid
-import hashlib
 from datetime import datetime, UTC, timedelta
 from pathlib import Path
 
