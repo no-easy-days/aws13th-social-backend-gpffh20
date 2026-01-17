@@ -90,7 +90,7 @@ class UserUpdateRequest(BaseModel):
         if not self.model_fields_set:
             raise ValueError("최소 하나의 필드는 입력 해야 합니다")
 
-        if "nikcname" in self.model_fields_set and self.nickname is None:
+        if "nickname" in self.model_fields_set and self.nickname is None:
             raise ValueError("nickname은 null로 설정할 수 없습니다.")
         return self
 
