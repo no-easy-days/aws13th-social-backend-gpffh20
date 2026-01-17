@@ -14,5 +14,13 @@
     "password": "$2b$12$I3M9d9J0ltLrnl3d4U6CTOr4BYJ.sYb3o1iRknwtTMiMxfoeCAYZi",
     "profile_img": null,
     "created_at": "2026-01-17T05:09:51.382189+00:00"
+  },
+  {
+    "id": "user_8ba3ad0f",
+    "email": "user123@example.com",
+    "nickname": "oQasd7JS",
+    "password": "$2b$12$ma6aiQ46M3jf6OB8C/WKkeXQsgQioszaI0Wz3EF2VCf4AU5PZWNoG",
+    "profile_img": "string",
+    "created_at": "2026-01-17T06:01:14.886642+00:00"
   }
 ]
