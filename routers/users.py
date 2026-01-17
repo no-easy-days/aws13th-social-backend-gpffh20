@@ -1,60 +1,25 @@
-import hmac
-import os
 import uuid
-from datetime import datetime, UTC, timedelta
-from pathlib import Path
+from datetime import datetime, UTC
 
-import bcrypt
-import jwt
 from fastapi import APIRouter, HTTPException, status
 
+from config import settings
 from schemas.commons import UserId
 from schemas.user import UserCreateRequest, UserCreateResponse, UserLoginRequest, UserLoginResponse
+from utils.auth import hash_password, verify_password, create_access_token
 from utils.data import read_json, write_json
 
-USERS_FILE = Path("data/users.json")
-SECRET_KEY = os.getenv("SECRET_KEY")
-if not SECRET_KEY:
-    raise ValueError("SECRET_KEY is not set")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-
-PEPPER = os.getenv("PASSWORD_PEPPER")
-if not PEPPER:
-    raise RuntimeError("PASSWORD_PEPPER is not set")
 
 router = APIRouter(
     tags=["USERS"],
 )
 
 
-def _prehash(password: str) -> bytes:
-    """
-    HMAC-SHA256으로 사전 해싱
-    - bcrypt 72바이트 제한 우회
-    - PEPPER로 password shucking 공격 방지
-    """
-    return hmac.new(
-        key=PEPPER.encode(),
-        msg=password.encode(),
-        digestmod="sha256"
-    ).hexdigest().encode()
-
-def hash_password(password: str) -> str:
-    prehashed = _prehash(password)
-    return bcrypt.hashpw(prehashed, bcrypt.gensalt()).decode()
-
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    prehashed = _prehash(plain_password)
-    return bcrypt.checkpw(prehashed, hashed_password.encode())
-
-
 @router.post("/users", response_model=UserCreateResponse,
              status_code=status.HTTP_201_CREATED)
 def create_user(user: UserCreateRequest):
     """회원가입"""
-    users = read_json(USERS_FILE)
+    users = read_json(settings.users_file)
 
     # 이메일 중복 확인
     if any(u["email"] == user.email for u in users):
@@ -77,7 +42,7 @@ def create_user(user: UserCreateRequest):
     }
 
     users.append(new_user)
-    write_json(USERS_FILE, users)
+    write_json(settings.users_file, users)
 
     return {
         "id": new_id,
@@ -87,19 +52,12 @@ def create_user(user: UserCreateRequest):
     }
 
 
-def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
-    to_encode = data.copy()
-    expire = datetime.now(UTC) + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
-
 # login
 @router.post("/auth/tokens", response_model=UserLoginResponse,
              status_code=status.HTTP_200_OK)
 def get_auth_tokens(user: UserLoginRequest):
     """로그인"""
-    users = read_json(USERS_FILE)
+    users = read_json(settings.users_file)
 
     # 이메일로 유저 찾기
     db_user = next((u for u in users if u["email"] == user.email), None)
