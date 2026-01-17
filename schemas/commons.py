@@ -14,9 +14,9 @@ UserId = Annotated[
 PostId = Annotated[
     str,
     Field(
-        pattern=r"^post_\d+$",
+        pattern=r"^post_[a-f0-9]+$",
         description="게시글 ID",
-        examples=["post_123"],
+        examples=["post_a1b2c3d4"],
     ),
 ]
 
