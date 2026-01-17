@@ -50,7 +50,7 @@ def get_posts(query: ListPostsQuery = Depends()):
     if query.q:
         posts = [
             p for p in posts
-            if query.q in p["title"] or query.q in p["content"]
+            if query.q.lower() in p["title"].lower() or query.q.lower() in p["content"].lower()
         ]
     # 정렬
     reverse = query.order == "desc"
