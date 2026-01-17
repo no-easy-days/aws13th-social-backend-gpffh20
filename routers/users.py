@@ -1,18 +1,25 @@
 import uuid
 from datetime import datetime, UTC
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 
 from config import settings
 from schemas.commons import UserId
+from schemas.user import (
+    UserMyProfile,
+    UserUpdateRequest,
+)
 from schemas.user import UserCreateRequest, UserCreateResponse, UserLoginRequest, UserLoginResponse
-from utils.auth import hash_password, verify_password, create_access_token, DUMMY_HASH
+from utils.auth import hash_password, verify_password, create_access_token, DUMMY_HASH, get_current_user_id
 from utils.data import read_json, write_json
 
 router = APIRouter(
     tags=["USERS"],
 )
 
+# 의존성 주입용 타입 별칭
+CurrentUserId = Annotated[str, Depends(get_current_user_id)]
 
 @router.post("/users", response_model=UserCreateResponse,
              status_code=status.HTTP_201_CREATED)
@@ -51,7 +58,6 @@ def create_user(user: UserCreateRequest):
     }
 
 
-# login
 @router.post("/auth/tokens", response_model=UserLoginResponse,
              status_code=status.HTTP_200_OK)
 def get_auth_tokens(user: UserLoginRequest):
@@ -76,25 +82,54 @@ def get_auth_tokens(user: UserLoginRequest):
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-# edit profile
-# Depends를 활용한 의존성 주입으로 구현
-@router.patch("/users/me")
-async def update_my_profile():
-    return {"success": "update_my_profile"}
+@router.get("/users/me", response_model=UserMyProfile)
+def get_my_profile(user_id: CurrentUserId):
+    """내 프로필 조회"""
+    users = read_json(settings.users_file)
+
+    user = next((u for u in users if u["id"] == user_id), None)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    return {
+        "id": user["id"],
+        "email": user["email"],
+        "nickname": user["nickname"],
+        "profile_img": user["profile_img"],
+        "created_at": user["created_at"],
+    }
 
 
-# get my profile
-# Depends를 활용한 의존성 주입으로 구현
-@router.get("/users/me")
-async def get_my_profile():
-    return {"success": "get_my_profile"}
+@router.patch("/users/me", response_model=UserMyProfile)
+def update_my_profile(user_id: CurrentUserId, update_data: UserUpdateRequest):
+    """내 프로필 수정"""
+    users = read_json(settings.users_file)
 
+    user_index = next((i for i, u in enumerate(users) if u["id"] == user_id), None)
+    if user_index is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
 
-# delete account
-# Depends를 활용한 의존성 주입으로 구현
-@router.delete("/users/me")
-async def delete_my_account():
-    return {"success": "delete_user"}
+    # 변경할 필드만 업데이트
+    if update_data.nickname is not None:
+        users[user_index]["nickname"] = update_data.nickname
+    if update_data.profile_img is not None:
+        users[user_index]["profile_img"] = update_data.profile_img
+
+    write_json(settings.users_file, users)
+
+    return {
+        "id": users[user_index]["id"],
+        "email": users[user_index]["email"],
+        "nickname": users[user_index]["nickname"],
+        "profile_img": users[user_index]["profile_img"],
+        "created_at": users[user_index]["created_at"],
+    }
 
 
 # get a specific user

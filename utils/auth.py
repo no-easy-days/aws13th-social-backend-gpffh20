@@ -4,10 +4,15 @@ from datetime import datetime, UTC, timedelta
 
 import bcrypt
 import jwt
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from config import settings
 
 logger = logging.getLogger(__name__)
+
+# Bearer 토큰 인증 스키마
+security = HTTPBearer()
 
 
 def _prehash(password: str) -> bytes:
@@ -46,3 +51,35 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     expire = datetime.now(UTC) + (expires_delta or timedelta(minutes=settings.access_token_expire_minutes))
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
+
+
+def decode_access_token(token: str) -> dict:
+    """token decoding"""
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="token is expired",
+        )
+    except jwt.InvalidTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="invalid token",
+        )
+
+
+def get_current_user_id(
+        credentials: HTTPAuthorizationCredentials = Depends(security)
+) -> str:
+    """현재 로그인한 유저 ID 반환"""
+    token = credentials.credentials
+    payload = decode_access_token(token)
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="invalid token",
+        )
+    return user_id

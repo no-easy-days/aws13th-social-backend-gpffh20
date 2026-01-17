@@ -1,18 +1,18 @@
 [
   {
-    "id": "user_a7364df2",
-    "email": "user123@example.com",
-    "nickname": "CLB8l3PiJM",
-    "password": "$2b$12$1yEJOFfZWL27TPgawltyGOq4pxIN1xViO2TfWy0xqpo3DuR/h0SOy",
-    "profile_img": "string",
-    "created_at": "2026-01-17T01:02:59.974640+00:00"
+    "id": "user_test0001",
+    "email": "test@example.com",
+    "nickname": "TestUser",
+    "password": "$2b$12$VJmZp.XFBT3ENEbW02wDq.NXm9E6aGbyvt7VXQQqmo2rk7SL0K2U2",
+    "profile_img": null,
+    "created_at": "2026-01-17T05:09:51.149758+00:00"
   },
   {
-    "id": "user_2999d665",
-    "email": "user12@example.com",
-    "nickname": "CLB8l3PiJM",
-    "password": "$2b$12$zZ1A69svFwXDg.pfuHeaz.6sLla95.usCkSKnSGtg4rzafQ8MIuFq",
-    "profile_img": "string",
-    "created_at": "2026-01-17T01:24:12.833229+00:00"
+    "id": "user_test0002",
+    "email": "test2@example.com",
+    "nickname": "TestUser2",
+    "password": "$2b$12$I3M9d9J0ltLrnl3d4U6CTOr4BYJ.sYb3o1iRknwtTMiMxfoeCAYZi",
+    "profile_img": null,
+    "created_at": "2026-01-17T05:09:51.382189+00:00"
   }
 ]
