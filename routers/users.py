@@ -97,7 +97,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
 # login
 @router.post("/auth/tokens", response_model=UserLoginResponse,
              status_code=status.HTTP_200_OK)
-async def get_auth_tokens(user: UserLoginRequest):
+def get_auth_tokens(user: UserLoginRequest):
     """로그인"""
     users = read_json(USERS_FILE)
 
