@@ -5,7 +5,7 @@ from pydantic import Field, BaseModel, StringConstraints
 UserId = Annotated[
     str,
     Field(
-        pattern=r"^user_\d+$",
+        pattern=r"^user_[a-f0-9]+$",
         description="사용자 ID",
         examples=["user_123"],
     ),

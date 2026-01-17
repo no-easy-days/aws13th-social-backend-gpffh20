@@ -1,6 +1,8 @@
-import hashlib
+import hmac
 import os
-from datetime import datetime, timezone, timedelta, UTC
+import uuid
+import hashlib
+from datetime import datetime, UTC
 from pathlib import Path
 
 import bcrypt
@@ -16,14 +18,27 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
+PEPPER = os.getenv("PASSWORD_PEPPER")
+
 router = APIRouter(
     tags=["USERS"],
 )
 
 
+def _prehash(password: str) -> bytes:
+    """
+    HMAC-SHA256으로 사전 해싱
+    - bcrypt 72바이트 제한 우회
+    - PEPPER로 password shucking 공격 방지
+    """
+    return hmac.new(
+        key=PEPPER.encode(),
+        msg=password.encode(),
+        digestmod="sha256"
+    ).hexdigest().encode()
+
 def hash_password(password: str) -> str:
-    # SHA-256으로 사전 해싱 (bcrypt 72바이트 제한 우회)
-    prehashed = hashlib.sha256(password.encode()).hexdigest().encode()
+    prehashed = _prehash(password)
     return bcrypt.hashpw(prehashed, bcrypt.gensalt()).decode()
 
 
@@ -32,8 +47,9 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return bcrypt.checkpw(prehashed, hashed_password.encode())
 
 
-@router.post("/users", response_model=UserCreateResponse)
-async def create_user(user: UserCreateRequest):
+@router.post("/users", response_model=UserCreateResponse,
+             status_code=status.HTTP_201_CREATED)
+def create_user(user: UserCreateRequest):
     """회원가입"""
     users = read_json(USERS_FILE)
 
@@ -45,8 +61,8 @@ async def create_user(user: UserCreateRequest):
         )
 
     # 새 유저 ID 생성
-    new_id = f"user_{len(users) + 1}"
-    now = datetime.now(timezone.utc)
+    new_id = f"user_{uuid.uuid4().hex[:8]}"
+    now = datetime.now(UTC)
 
     new_user = {
         "id": new_id,
