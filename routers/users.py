@@ -59,8 +59,7 @@ def create_user(user: UserCreateRequest):
     }
 
 
-@router.post("/auth/tokens", response_model=UserLoginResponse,
-             status_code=status.HTTP_200_OK)
+@router.post("/auth/tokens", response_model=UserLoginResponse)
 def get_auth_tokens(user: UserLoginRequest):
     """로그인"""
     users = read_json(settings.users_file)
