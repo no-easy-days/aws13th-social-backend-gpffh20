@@ -83,8 +83,15 @@ class UserUpdateRequest(BaseModel):
 
     @model_validator(mode='after')
     def check_at_least_one_field(self):
-        if self.nickname is None and self.profile_img is None:
+        """
+        PATCH 요청에서 "미전송" vs "명시적 null 전송(삭제요청)"을 구분하기 위해
+        사용자가 실제로 보낸 필드 집합(model_fields_set)을 기준으로 검사
+        """
+        if not self.model_fields_set:
             raise ValueError("최소 하나의 필드는 입력 해야 합니다")
+
+        if "nikcname" in self.model_fields_set and self.nickname is None:
+            raise ValueError("nickname은 null로 설정할 수 없습니다.")
         return self
 
 

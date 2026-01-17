@@ -95,13 +95,7 @@ def get_my_profile(user_id: CurrentUserId):
             detail="User not found"
         )
 
-    return {
-        "id": user["id"],
-        "email": user["email"],
-        "nickname": user["nickname"],
-        "profile_img": user["profile_img"],
-        "created_at": user["created_at"],
-    }
+    return user
 
 
 @router.patch("/users/me", response_model=UserMyProfile)
@@ -117,20 +111,12 @@ def update_my_profile(user_id: CurrentUserId, update_data: UserUpdateRequest):
         )
 
     # 변경할 필드만 업데이트
-    if update_data.nickname is not None:
-        users[user_index]["nickname"] = update_data.nickname
-    if update_data.profile_img is not None:
-        users[user_index]["profile_img"] = update_data.profile_img
+    update_field = update_data.model_dump(exclude_unset=True)
+    users[user_index].update(update_field)
 
     write_json(settings.users_file, users)
 
-    return {
-        "id": users[user_index]["id"],
-        "email": users[user_index]["email"],
-        "nickname": users[user_index]["nickname"],
-        "profile_img": users[user_index]["profile_img"],
-        "created_at": users[user_index]["created_at"],
-    }
+    return users[user_index]
 
 
 @router.get("/users/{user_id}", response_model=UserProfile)
@@ -145,11 +131,7 @@ def get_specific_user(user_id: UserId):
             detail="User not found"
         )
 
-    return {
-        "id": user["id"],
-        "nickname": user["nickname"],
-        "profile_img": user["profile_img"],
-    }
+    return user
 
 
 # TODO: user 관련 댓글, 게시글, 좋아요 같이 삭제하기
