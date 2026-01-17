@@ -85,7 +85,22 @@ def update_post(author_id: CurrentUserId, post_id: PostId, update_data: PostUpda
     return posts[post_index]
 
 
-# delete post
-@router.delete("/posts/{post_id}")
-async def delete_post(post_id: PostId):
-    return {"success": "delete_post"}
+@router.delete("/posts/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_post(author_id: CurrentUserId, post_id: PostId):
+    """게시글 삭제"""
+    posts = read_json(settings.posts_file)
+
+    post_index = next((i for i, p in enumerate(posts) if p["id"] == post_id), None)
+    if post_index is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="post not found"
+        )
+    if posts[post_index]["author"] != author_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="not authorized to delete this post"
+        )
+
+    posts.pop(post_index)
+    write_json(settings.posts_file, posts)
