@@ -5,8 +5,8 @@ from fastapi import APIRouter, Depends, status, HTTPException
 
 from config import settings
 from routers.users import CurrentUserId
-from schemas.commons import Page, PostId
-from schemas.post import ListPostsQuery, PostCreateRequest, PostListItem, PostUpdateRequest
+from schemas.commons import Page, PostId, Pagination
+from schemas.post import ListPostsQuery, PostCreateRequest, PostListItem, PostUpdateRequest, ListPostsResponse
 from utils.data import read_json, write_json
 
 router = APIRouter(
@@ -14,10 +14,40 @@ router = APIRouter(
 )
 
 
-# List, search, sort posts
-@router.get("/posts")
-async def get_posts(query: ListPostsQuery = Depends()):
-    return {"success": "get_posts"}
+@router.get("/posts", response_model=ListPostsResponse)
+def get_posts(query: ListPostsQuery = Depends()):
+    """
+    게시글 전체 목록 조회
+    - 검색
+    - 정렬(조회수, 좋아요수, 최신순)
+    - 페이지네이션 (20개씩)
+    """
+    posts = read_json(settings.posts_file)
+
+    # 검색
+    if query.q:
+        posts = [
+            p for p in posts
+            if query.q in p["title"] or query.q in p["content"]
+        ]
+    # 정렬
+    reverse = query.order == "desc"
+    posts.sort(key=lambda p: p[query.sort], reverse=reverse)
+
+    # 페이지네이션
+    page_size = 20
+    total_posts = len(posts)
+    total_pages = max(1, (total_posts + page_size - 1) // page_size)
+    page = min(query.page, total_pages)
+
+    start = (page - 1) * page_size
+    end = start + page_size
+    paginated_posts = posts[start:end]
+
+    return ListPostsResponse(
+        data=paginated_posts,
+        pagination=Pagination(page=query.page, total=total_pages)
+    )
 
 
 @router.post("/posts", response_model=PostListItem,

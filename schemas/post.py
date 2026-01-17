@@ -28,7 +28,7 @@ class ListPostsQuery(BaseModel):
     ] = None
     sort: Literal["created_at", "view_count", "like_count"] = "created_at"
     order: Literal["asc", "desc"] = "desc"
-    page: Page
+    page: Page = 1
 
 
 class ListPostsResponse(BaseModel):
