@@ -69,7 +69,7 @@ def get_posts(query: ListPostsQuery = Depends()):
     paginated_posts = posts[start:end]
 
     return ListPostsResponse(
-        data=paginated_posts,
+        data=[PostListItem(**p) for p in paginated_posts],
         pagination=Pagination(page=page, total=total_pages)
     )
 
