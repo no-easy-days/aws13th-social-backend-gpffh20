@@ -43,7 +43,8 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return bcrypt.checkpw(prehashed, hashed_password.encode())
 
 
-@router.post("/users", response_model=UserCreateResponse)
+@router.post("/users", response_model=UserCreateResponse,
+             status_code=status.HTTP_201_CREATED)
 def create_user(user: UserCreateRequest):
     """회원가입"""
     users = read_json(USERS_FILE)
