@@ -60,7 +60,7 @@ def create_refresh_token(data: dict, expires_delta: timedelta | None = None) -> 
     return jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
 
 
-def _decode_token(token: str, expected_type: str) -> dict:
+def decode_token(token: str, expected_type: str) -> dict:
     """토큰 디코딩 및 타입 검증"""
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
@@ -87,7 +87,7 @@ def get_current_user_id(
 ) -> str:
     """현재 로그인한 유저 ID 반환"""
     token = credentials.credentials
-    payload = _decode_token(token, "access")
+    payload = decode_token(token, "access")
     user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(

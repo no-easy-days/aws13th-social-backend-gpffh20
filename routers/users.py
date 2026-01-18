@@ -14,7 +14,7 @@ from schemas.user import (
 )
 from utils.auth import (
     hash_password, verify_password, create_access_token, create_refresh_token,
-    _decode_token, DUMMY_HASH, get_current_user_id
+    decode_token, DUMMY_HASH, get_current_user_id
 )
 from utils.data import read_json, write_json
 
@@ -111,7 +111,7 @@ def refresh_access_token(
             detail="refresh token not found",
         )
 
-    payload = _decode_token(refresh_token, "refresh")
+    payload = decode_token(refresh_token, "refresh")
     user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(
