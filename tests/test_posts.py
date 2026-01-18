@@ -140,12 +140,72 @@ class TestGetPostsMine:
         assert data["pagination"]["page"] == 1  # 마지막 페이지로 조정됨
 
     def test_get_posts_mine_unauthorized(self, client):
-        """인증 없이 요청 시 403"""
+        """인증 없이 요청 시 401"""
         response = client.get("/posts/me")
-        assert response.status_code == 403
+        assert response.status_code == 401
 
     def test_get_posts_mine_invalid_token(self, client):
         """잘못된 토큰으로 요청 시 401"""
         headers = {"Authorization": "Bearer invalid_token"}
         response = client.get("/posts/me", headers=headers)
         assert response.status_code == 401
+
+
+class TestGetSinglePost:
+    """GET /posts/{post_id} 테스트"""
+
+    def test_get_single_post_success(self, client, mock_posts_data):
+        """게시글 조회 성공"""
+        with patch("routers.posts.read_json", return_value=mock_posts_data):
+            with patch("routers.posts.write_json") as mock_write:
+                response = client.get("/posts/post_00000001")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["id"] == "post_00000001"
+        assert data["title"] == "첫 번째 글"
+        assert data["content"] == "내용1"
+
+    def test_get_single_post_view_count_increment(self, client, mock_posts_data):
+        """조회 시 view_count 증가 확인"""
+        original_view_count = mock_posts_data[0]["view_count"]
+
+        with patch("routers.posts.read_json", return_value=mock_posts_data):
+            with patch("routers.posts.write_json") as mock_write:
+                response = client.get("/posts/post_00000001")
+
+                # write_json이 호출되었는지 확인
+                assert mock_write.called
+                # 저장된 데이터에서 view_count가 증가했는지 확인
+                saved_posts = mock_write.call_args[0][1]
+                saved_post = next(p for p in saved_posts if p["id"] == "post_00000001")
+                assert saved_post["view_count"] == original_view_count + 1
+
+    def test_get_single_post_not_found(self, client):
+        """존재하지 않는 게시글 요청 시 404"""
+        with patch("routers.posts.read_json", return_value=[]):
+            response = client.get("/posts/post_99999999")
+
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Post not found"
+
+    def test_get_single_post_legacy_data_without_view_count(self, client):
+        """view_count가 없는 레거시 데이터는 422 에러 발생 (현재 동작)"""
+        legacy_post = {
+            "id": "post_legacy001",
+            "author": "user_00000001",
+            "title": "레거시 글",
+            "content": "레거시 내용",
+            # view_count 없음
+            "like_count": 0,
+            "created_at": "2026-01-17T10:00:00+00:00",
+            "updated_at": "2026-01-17T10:00:00+00:00",
+        }
+
+        with patch("routers.posts.read_json", return_value=[legacy_post]):
+            with patch("routers.posts.write_json"):
+                response = client.get("/posts/post_legacy001")
+
+        # view_count 필드 누락 시 Pydantic 검증 실패로 422 반환
+        # TODO: 레거시 데이터 지원이 필요하면 view_count 기본값 처리 추가
+        assert response.status_code == 422
