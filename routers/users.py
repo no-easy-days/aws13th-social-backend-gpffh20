@@ -102,7 +102,7 @@ def get_auth_tokens(user: UserLoginRequest, response: Response):
 
 
 @router.post("/auth/tokens/refresh", response_model=TokenRefreshResponse)
-def refresh_access_token(refresh_token: str | None = Cookie(None)):
+def refresh_access_token(refresh_token: str | None = Cookie(None, alias=REFRESH_TOKEN_COOKIE_KEY)):
     """Access Token 갱신 (쿠키에서 refresh_token 읽음)"""
     if not refresh_token:
         raise HTTPException(
