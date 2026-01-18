@@ -10,8 +10,8 @@ class PostListItem(BaseModel):
     id: PostId
     author: UserId
     title: Title
-    view_count: Count
-    like_count: Count
+    view_count: Count = 0
+    like_count: Count = 0
     created_at: datetime
 
 

@@ -157,7 +157,7 @@ class TestGetSinglePost:
     def test_get_single_post_success(self, client, mock_posts_data):
         """게시글 조회 성공"""
         with patch("routers.posts.read_json", return_value=mock_posts_data):
-            with patch("routers.posts.write_json") as mock_write:
+            with patch("routers.posts.write_json"):
                 response = client.get("/posts/post_00000001")
 
         assert response.status_code == 200
@@ -172,7 +172,7 @@ class TestGetSinglePost:
 
         with patch("routers.posts.read_json", return_value=mock_posts_data):
             with patch("routers.posts.write_json") as mock_write:
-                response = client.get("/posts/post_00000001")
+                client.get("/posts/post_00000001")
 
                 # write_json이 호출되었는지 확인
                 assert mock_write.called
@@ -190,22 +190,22 @@ class TestGetSinglePost:
         assert response.json()["detail"] == "Post not found"
 
     def test_get_single_post_legacy_data_without_view_count(self, client):
-        """view_count가 없는 레거시 데이터는 422 에러 발생 (현재 동작)"""
+        """view_count가 없는 레거시 데이터도 기본값 0으로 처리"""
         legacy_post = {
-            "id": "post_legacy001",
+            "id": "post_abcd1234",
             "author": "user_00000001",
             "title": "레거시 글",
             "content": "레거시 내용",
-            # view_count 없음
-            "like_count": 0,
+            # view_count, like_count 없음
             "created_at": "2026-01-17T10:00:00+00:00",
             "updated_at": "2026-01-17T10:00:00+00:00",
         }
 
         with patch("routers.posts.read_json", return_value=[legacy_post]):
             with patch("routers.posts.write_json"):
-                response = client.get("/posts/post_legacy001")
+                response = client.get("/posts/post_abcd1234")
 
-        # view_count 필드 누락 시 Pydantic 검증 실패로 422 반환
-        # TODO: 레거시 데이터 지원이 필요하면 view_count 기본값 처리 추가
-        assert response.status_code == 422
+        assert response.status_code == 200
+        data = response.json()
+        assert data["view_count"] == 1
+        assert data["like_count"] == 0
