@@ -24,7 +24,7 @@ router = APIRouter(
 
 
 def _get_post_index_and_verify_author(posts: list, post_id: PostId, author_id: str) -> int:
-    post_index = next((i for i, p in enumerate(posts) if p["id"] == post_id), None)
+    post_index = next((i for i, post in enumerate(posts) if post["id"] == post_id), None)
     if post_index is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -40,7 +40,7 @@ def _get_post_index_and_verify_author(posts: list, post_id: PostId, author_id: s
 
 
 @router.get("/posts", response_model=ListPostsResponse)
-def get_posts(query: ListPostsQuery = Depends()):
+def get_posts(query: ListPostsQuery = Depends()) -> ListPostsResponse:
     """
     게시글 전체 목록 조회
     - 검색
@@ -53,8 +53,8 @@ def get_posts(query: ListPostsQuery = Depends()):
     if query.q:
         q_lower = query.q.lower()
         posts = [
-            p for p in posts
-            if q_lower in p["title"].lower() or q_lower in p["content"].lower()
+            post for post in posts
+            if q_lower in post["title"].lower() or q_lower in post["content"].lower()
         ]
     # 정렬
     reverse = query.order == "desc"
@@ -72,7 +72,7 @@ def get_posts(query: ListPostsQuery = Depends()):
 # TODO: id가 아닌 닉네임이 표시되게 하기
 @router.post("/posts", response_model=PostListItem,
              status_code=status.HTTP_201_CREATED)
-def create_post(author_id: CurrentUserId, post: PostCreateRequest):
+def create_post(author_id: CurrentUserId, post: PostCreateRequest) -> PostListItem:
     """ 게시글 생성 """
     posts = read_json(settings.posts_file)
 
@@ -96,29 +96,29 @@ def create_post(author_id: CurrentUserId, post: PostCreateRequest):
 
 
 @router.get("/posts/me", response_model=ListPostsResponse)
-def get_posts_mine(user_id: CurrentUserId, page: Page = 1):
+def get_posts_mine(user_id: CurrentUserId, page: Page = 1) -> ListPostsResponse:
     """내가 작성한 게시글 목록"""
     posts = read_json(settings.posts_file)
 
-    my_posts = [p for p in posts if p["author"] == user_id]
+    my_posts = [post for post in posts if post["author"] == user_id]
 
-    my_posts.sort(key=lambda p: p["created_at"], reverse=True)
+    my_posts.sort(key=lambda post: post["created_at"], reverse=True)
 
     # 페이지네이션
     paginated_posts, page, total_pages = paginate(my_posts, page, PAGE_SIZE)
 
     return ListPostsResponse(
-        data=[PostListItem(**p) for p in paginated_posts],
+        data=[PostListItem(**post) for post in paginated_posts],
         pagination=Pagination(page=page, total=total_pages)
     )
 
 
 @router.get("/posts/{post_id}", response_model=PostDetail)
-def get_single_post(post_id: PostId):
+def get_single_post(post_id: PostId) -> PostDetail:
     """게시글 상세 조회"""
     posts = read_json(settings.posts_file)
 
-    post_index = next((i for i, p in enumerate(posts) if p["id"] == post_id), None)
+    post_index = next((i for i, post in enumerate(posts) if post["id"] == post_id), None)
     if post_index is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -129,11 +129,11 @@ def get_single_post(post_id: PostId):
     posts[post_index]["view_count"] = posts[post_index].get("view_count", 0) + 1
     write_json(settings.posts_file, posts)
 
-    return posts[post_index]
+    return PostDetail(**posts[post_index])
 
 
 @router.patch("/posts/{post_id}", response_model=PostDetail)
-def update_post(author_id: CurrentUserId, post_id: PostId, update_data: PostUpdateRequest):
+def update_post(author_id: CurrentUserId, post_id: PostId, update_data: PostUpdateRequest) -> PostDetail:
     """게시글 수정"""
     posts = read_json(settings.posts_file)
 
@@ -148,11 +148,11 @@ def update_post(author_id: CurrentUserId, post_id: PostId, update_data: PostUpda
 
     write_json(settings.posts_file, posts)
 
-    return posts[post_index]
+    return PostDetail(**posts[post_index])
 
 
 @router.delete("/posts/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_post(author_id: CurrentUserId, post_id: PostId):
+def delete_post(author_id: CurrentUserId, post_id: PostId) -> Response:
     """게시글 삭제"""
     posts = read_json(settings.posts_file)
 

@@ -53,7 +53,7 @@ def _verify_post_exists(post_id: PostId) -> None:
 
 
 @router.get("/posts/{post_id}/comments", response_model=CommentListResponse)
-def get_comments(post_id: PostId, page: Page = 1):
+def get_comments(post_id: PostId, page: Page = 1) -> CommentListResponse:
     """게시글의 댓글 목록 조회"""
     _verify_post_exists(post_id)
     comments = read_json(settings.comments_file)
@@ -75,7 +75,7 @@ def get_comments(post_id: PostId, page: Page = 1):
 
 @router.post("/posts/{post_id}/comments", response_model=CommentBase,
              status_code=status.HTTP_201_CREATED)
-def create_comment(post_id: PostId, user_id: CurrentUserId, comment: CommentCreateRequest):
+def create_comment(post_id: PostId, user_id: CurrentUserId, comment: CommentCreateRequest) -> CommentBase:
     """댓글 작성"""
     _verify_post_exists(post_id)
     comments = read_json(settings.comments_file)
@@ -95,7 +95,7 @@ def create_comment(post_id: PostId, user_id: CurrentUserId, comment: CommentCrea
     comments.append(new_comment)
     write_json(settings.comments_file, comments)
 
-    return new_comment
+    return CommentBase(**new_comment)
 
 
 @router.patch("/posts/{post_id}/comments/{comment_id}", response_model=CommentUpdateResponse)
@@ -104,7 +104,7 @@ def update_comment(
         comment_id: CommentId,
         user_id: CurrentUserId,
         update_data: CommentUpdateRequest
-):
+) -> CommentUpdateResponse:
     """댓글 수정"""
     _verify_post_exists(post_id)
     comments = read_json(settings.comments_file)
@@ -116,11 +116,11 @@ def update_comment(
 
     write_json(settings.comments_file, comments)
 
-    return comments[comment_index]
+    return CommentUpdateResponse(**comments[comment_index])
 
 
 @router.delete("/posts/{post_id}/comments/{comment_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_comment(post_id: PostId, comment_id: CommentId, user_id: CurrentUserId):
+def delete_comment(post_id: PostId, comment_id: CommentId, user_id: CurrentUserId) -> Response:
     """댓글 삭제"""
     _verify_post_exists(post_id)
     comments = read_json(settings.comments_file)
@@ -133,7 +133,7 @@ def delete_comment(post_id: PostId, comment_id: CommentId, user_id: CurrentUserI
 
 
 @router.get("/comments/me", response_model=CommentListResponse)
-def get_comments_mine(user_id: CurrentUserId, page: Page = 1):
+def get_comments_mine(user_id: CurrentUserId, page: Page = 1) -> CommentListResponse:
     """내가 작성한 댓글 목록"""
     comments = read_json(settings.comments_file)
 
