@@ -126,7 +126,7 @@ def get_single_post(post_id: PostId):
         )
 
     # 조회수 증가
-    posts[post_index]["view_count"] += 1
+    posts[post_index]["view_count"] = posts[post_index].get("view_count", 0) + 1
     write_json(settings.posts_file, posts)
 
     return posts[post_index]
