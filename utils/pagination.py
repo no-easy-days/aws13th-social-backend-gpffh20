@@ -10,6 +10,9 @@ def paginate(items: list, page: int, page_size: int) -> tuple[list, int, int]:
     Returns:
         (paginated_items, actual_page, total_pages)
     """
+    page = max(1, page)
+    page_size = max(1, page_size)
+
     total_items = len(items)
     total_pages = max(1, (total_items + page_size - 1) // page_size)
     actual_page = min(page, total_pages)

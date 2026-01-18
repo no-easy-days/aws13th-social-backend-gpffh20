@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     users_file: Path = Path(__file__).resolve().parent / "data/users.json"
     posts_file: Path = Path(__file__).resolve().parent / "data/posts.json"
+    comments_file: Path = Path(__file__).resolve().parent / "data/comments.json"
 
 
 settings = Settings()
