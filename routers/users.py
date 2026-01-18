@@ -35,8 +35,7 @@ def create_user(user: UserCreateRequest):
             detail="Email already registered"
         )
 
-    # 새 유저 ID 생성
-    new_id = f"user_{uuid.uuid4().hex[:8]}"
+    new_id = f"user_{uuid.uuid4().hex}"
     now = datetime.now(UTC)
 
     new_user = {

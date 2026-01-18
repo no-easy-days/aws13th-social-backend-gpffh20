@@ -76,7 +76,7 @@ def create_post(author_id: CurrentUserId, post: PostCreateRequest):
     """ 게시글 생성 """
     posts = read_json(settings.posts_file)
 
-    post_id = f"post_{uuid.uuid4().hex[:8]}"
+    post_id = f"post_{uuid.uuid4().hex}"
     now = datetime.now(UTC)
 
     new_post_model = PostDetail(

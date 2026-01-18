@@ -80,7 +80,7 @@ def create_comment(post_id: PostId, user_id: CurrentUserId, comment: CommentCrea
     _verify_post_exists(post_id)
     comments = read_json(settings.comments_file)
 
-    comment_id = f"comment_{uuid.uuid4().hex[:8]}"
+    comment_id = f"comment_{uuid.uuid4().hex}"
     now = datetime.now(UTC)
 
     new_comment = {

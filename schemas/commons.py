@@ -23,9 +23,9 @@ PostId = Annotated[
 CommentId = Annotated[
     str,
     Field(
-        pattern=r"^comment_\d+$",
+        pattern=r"^comment_[a-f0-9]+$",
         description="댓글 ID",
-        examples=["comment_123"],
+        examples=["comment_a1b2c3d4"],
     )
 ]
 
