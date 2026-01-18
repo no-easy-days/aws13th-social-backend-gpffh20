@@ -122,8 +122,6 @@ def delete_like(post_id: PostId, user_id: CurrentUserId):
     # 게시글 좋아요 수 감소 (이미 읽은 posts 재사용)
     _update_post_like_count(posts, post_id, -1)
 
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
-
 
 @router.get("/posts/{post_id}/likes", response_model=LikeStatusResponse)
 def get_like_status(post_id: PostId, user_id: CurrentUserId):
