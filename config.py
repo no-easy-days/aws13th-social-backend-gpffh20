@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     users_file: Path = Path(__file__).resolve().parent / "data/users.json"
     posts_file: Path = Path(__file__).resolve().parent / "data/posts.json"
     comments_file: Path = Path(__file__).resolve().parent / "data/comments.json"
+    likes_file: Path = Path(__file__).resolve().parent / "data/likes.json"
 
 
 settings = Settings()
