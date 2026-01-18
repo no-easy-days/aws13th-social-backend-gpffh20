@@ -119,6 +119,12 @@ def refresh_access_token(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="invalid token",
         )
+    users = read_json(settings.users_file)
+    if not any(user["id"] == user_id for user in users):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="invalid token",
+        )
 
     # 새 access token 발급
     access_token = create_access_token(data={"sub": user_id})
