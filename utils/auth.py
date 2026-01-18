@@ -49,14 +49,26 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     to_encode = data.copy()
     expire = datetime.now(UTC) + (expires_delta or timedelta(minutes=settings.access_token_expire_minutes))
-    to_encode.update({"exp": expire})
+    to_encode.update({"exp": expire, "type": "access"})
     return jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
 
 
-def decode_access_token(token: str) -> dict:
-    """token decoding"""
+def create_refresh_token(data: dict, expires_delta: timedelta | None = None) -> str:
+    to_encode = data.copy()
+    expire = datetime.now(UTC) + (expires_delta or timedelta(days=settings.refresh_token_expire_days))
+    to_encode.update({"exp": expire, "type": "refresh"})
+    return jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
+
+
+def decode_token(token: str, expected_type: str) -> dict:
+    """토큰 디코딩 및 타입 검증"""
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        if payload.get("type") != expected_type:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="invalid token type",
+            )
         return payload
     except jwt.ExpiredSignatureError:
         raise HTTPException(
@@ -75,7 +87,7 @@ def get_current_user_id(
 ) -> str:
     """현재 로그인한 유저 ID 반환"""
     token = credentials.credentials
-    payload = decode_access_token(token)
+    payload = decode_token(token, "access")
     user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(

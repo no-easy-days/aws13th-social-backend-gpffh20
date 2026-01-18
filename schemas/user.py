@@ -64,9 +64,13 @@ class UserLoginRequest(BaseModel):
     password: str
 
 
-class UserLoginResponse(BaseModel):
+class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+
+UserLoginResponse = TokenResponse
+TokenRefreshResponse = TokenResponse
 
 
 class UserMyProfile(BaseModel):

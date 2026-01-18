@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, UTC
 
-from fastapi import APIRouter, Depends, status, HTTPException, Response
+from fastapi import APIRouter, Depends, status, HTTPException
 
 from config import settings
 from routers.users import CurrentUserId
@@ -151,7 +151,7 @@ def update_post(author_id: CurrentUserId, post_id: PostId, update_data: PostUpda
 
 
 @router.delete("/posts/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_post(author_id: CurrentUserId, post_id: PostId) -> Response:
+def delete_post(author_id: CurrentUserId, post_id: PostId) -> None:
     """게시글 삭제"""
     posts = read_json(settings.posts_file)
 
@@ -159,4 +159,3 @@ def delete_post(author_id: CurrentUserId, post_id: PostId) -> Response:
 
     posts.pop(post_index)
     write_json(settings.posts_file, posts)
-    return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, UTC
 
-from fastapi import APIRouter, HTTPException, status, Response
+from fastapi import APIRouter, HTTPException, status
 
 from config import settings
 from routers.users import CurrentUserId
@@ -120,7 +120,7 @@ def update_comment(
 
 
 @router.delete("/posts/{post_id}/comments/{comment_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_comment(post_id: PostId, comment_id: CommentId, user_id: CurrentUserId) -> Response:
+def delete_comment(post_id: PostId, comment_id: CommentId, user_id: CurrentUserId) -> None:
     """댓글 삭제"""
     _verify_post_exists(post_id)
     comments = read_json(settings.comments_file)
@@ -129,7 +129,6 @@ def delete_comment(post_id: PostId, comment_id: CommentId, user_id: CurrentUserI
 
     comments.pop(comment_index)
     write_json(settings.comments_file, comments)
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/comments/me", response_model=CommentListResponse)

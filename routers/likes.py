@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, UTC
 
-from fastapi import APIRouter, HTTPException, status, Response
+from fastapi import APIRouter, HTTPException, status
 
 from config import settings
 from routers.users import CurrentUserId
@@ -104,7 +104,7 @@ def create_like(post_id: PostId, user_id: CurrentUserId) -> LikeStatusResponse:
 
 
 @router.delete("/posts/{post_id}/likes", status_code=status.HTTP_204_NO_CONTENT)
-def delete_like(post_id: PostId, user_id: CurrentUserId) -> Response:
+def delete_like(post_id: PostId, user_id: CurrentUserId) -> None:
     """좋아요 취소"""
     _, posts = _get_post_or_404(post_id)
     likes = read_json(settings.likes_file)
@@ -124,8 +124,6 @@ def delete_like(post_id: PostId, user_id: CurrentUserId) -> Response:
 
     # 게시글 좋아요 수 감소 (이미 읽은 posts 재사용)
     _update_post_like_count(posts, post_id, -1)
-
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/posts/{post_id}/likes", response_model=LikeStatusResponse)
