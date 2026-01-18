@@ -22,6 +22,25 @@ router = APIRouter(
     tags=["COMMENTS"],
 )
 
+def _get_comment_index_and_verify_author(
+    comments: list, comment_id: CommentId, post_id: PostId, author_id: str
+) -> int:
+    comment_index = next(
+        (i for i, c in enumerate(comments) if c["id"] == comment_id and c["post_id"] == post_id),
+        None
+    )
+    if comment_index is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Comment not found"
+        )
+    if comments[comment_index]["author"] != author_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to modify this comment"
+        )
+    return comment_index
+
 
 def _verify_post_exists(post_id: PostId) -> None:
     """게시글 존재 확인"""
@@ -90,21 +109,7 @@ def update_comment(
     _verify_post_exists(post_id)
     comments = read_json(settings.comments_file)
 
-    comment_index = next(
-        (i for i, c in enumerate(comments) if c["id"] == comment_id and c["post_id"] == post_id),
-        None
-    )
-    if comment_index is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Comment not found"
-        )
-
-    if comments[comment_index]["author"] != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to update this comment"
-        )
+    comment_index = _get_comment_index_and_verify_author(comments, comment_id, post_id, user_id)
 
     comments[comment_index]["content"] = update_data.content
     comments[comment_index]["updated_at"] = datetime.now(UTC).isoformat()
@@ -120,21 +125,7 @@ def delete_comment(post_id: PostId, comment_id: CommentId, user_id: CurrentUserI
     _verify_post_exists(post_id)
     comments = read_json(settings.comments_file)
 
-    comment_index = next(
-        (i for i, c in enumerate(comments) if c["id"] == comment_id and c["post_id"] == post_id),
-        None
-    )
-    if comment_index is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Comment not found"
-        )
-
-    if comments[comment_index]["author"] != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to delete this comment"
-        )
+    comment_index = _get_comment_index_and_verify_author(comments, comment_id, post_id, user_id)
 
     comments.pop(comment_index)
     write_json(settings.comments_file, comments)
