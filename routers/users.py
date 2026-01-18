@@ -95,6 +95,7 @@ def get_auth_tokens(user: UserLoginRequest, response: Response) -> UserLoginResp
         secure=True,
         samesite="lax",
         max_age=settings.refresh_token_expire_days * 24 * 60 * 60,
+        path="/",
     )
 
     return UserLoginResponse(access_token=access_token)
@@ -127,7 +128,7 @@ def refresh_access_token(
 @router.post("/auth/logout", status_code=status.HTTP_204_NO_CONTENT)
 def logout(response: Response) -> None:
     """로그아웃 (refresh_token 쿠키 삭제)"""
-    response.delete_cookie(key=REFRESH_TOKEN_COOKIE_KEY)
+    response.delete_cookie(key=REFRESH_TOKEN_COOKIE_KEY, path="/")
 
 
 @router.get("/users/me", response_model=UserMyProfile)
