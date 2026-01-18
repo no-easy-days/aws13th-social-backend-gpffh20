@@ -5,9 +5,6 @@
     uv sync --all-extras  # dev 의존성 설치
     pytest tests/test_posts.py -v
 """
-import json
-from datetime import datetime, UTC
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -16,7 +13,11 @@ from fastapi.testclient import TestClient
 from main import app
 from utils.auth import create_access_token
 
-client = TestClient(app)
+
+@pytest.fixture
+def client():
+    """테스트용 FastAPI 클라이언트"""
+    return TestClient(app)
 
 
 @pytest.fixture
@@ -66,7 +67,7 @@ def mock_posts_data():
 class TestGetPostsMine:
     """GET /posts/me 테스트"""
 
-    def test_get_posts_mine_success(self, auth_headers, mock_posts_data):
+    def test_get_posts_mine_success(self, client, auth_headers, mock_posts_data):
         """내 게시글 목록 조회 성공"""
         with patch("routers.posts.read_json", return_value=mock_posts_data):
             response = client.get("/posts/me", headers=auth_headers)
@@ -76,7 +77,7 @@ class TestGetPostsMine:
         assert len(data["data"]) == 2  # user_00000001의 글만
         assert all(p["author"] == "user_00000001" for p in data["data"])
 
-    def test_get_posts_mine_sorted_by_latest(self, auth_headers, mock_posts_data):
+    def test_get_posts_mine_sorted_by_latest(self, client, auth_headers, mock_posts_data):
         """최신순 정렬 확인"""
         with patch("routers.posts.read_json", return_value=mock_posts_data):
             response = client.get("/posts/me", headers=auth_headers)
@@ -87,7 +88,7 @@ class TestGetPostsMine:
         assert data["data"][0]["id"] == "post_00000002"
         assert data["data"][1]["id"] == "post_00000001"
 
-    def test_get_posts_mine_empty(self, auth_headers):
+    def test_get_posts_mine_empty(self, client, auth_headers):
         """게시글 없는 경우"""
         with patch("routers.posts.read_json", return_value=[]):
             response = client.get("/posts/me", headers=auth_headers)
@@ -98,7 +99,7 @@ class TestGetPostsMine:
         assert data["pagination"]["page"] == 1
         assert data["pagination"]["total"] == 1
 
-    def test_get_posts_mine_pagination(self, auth_headers):
+    def test_get_posts_mine_pagination(self, client, auth_headers):
         """페이지네이션 테스트"""
         # 25개 게시글 생성 (PAGE_SIZE=20)
         many_posts = [
@@ -129,7 +130,7 @@ class TestGetPostsMine:
             data = response.json()
             assert len(data["data"]) == 5
 
-    def test_get_posts_mine_page_overflow(self, auth_headers, mock_posts_data):
+    def test_get_posts_mine_page_overflow(self, client, auth_headers, mock_posts_data):
         """존재하지 않는 페이지 요청 시 마지막 페이지 반환"""
         with patch("routers.posts.read_json", return_value=mock_posts_data):
             response = client.get("/posts/me?page=999", headers=auth_headers)
@@ -138,12 +139,12 @@ class TestGetPostsMine:
         data = response.json()
         assert data["pagination"]["page"] == 1  # 마지막 페이지로 조정됨
 
-    def test_get_posts_mine_unauthorized(self):
+    def test_get_posts_mine_unauthorized(self, client):
         """인증 없이 요청 시 401"""
         response = client.get("/posts/me")
-        assert response.status_code == 403  # HTTPBearer returns 403 for missing token
+        assert response.status_code == 401
 
-    def test_get_posts_mine_invalid_token(self):
+    def test_get_posts_mine_invalid_token(self, client):
         """잘못된 토큰으로 요청 시 401"""
         headers = {"Authorization": "Bearer invalid_token"}
         response = client.get("/posts/me", headers=headers)
