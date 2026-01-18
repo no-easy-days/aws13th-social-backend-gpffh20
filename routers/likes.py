@@ -17,7 +17,7 @@ router = APIRouter(
 )
 
 
-def _get_post_or_404(post_id: PostId, posts: list | None = None) -> tuple[dict, list]:
+def _get_post_or_404(post_id: PostId, posts: list[dict] | None = None) -> tuple[dict, list[dict]]:
     """게시글 존재 확인 및 반환 (posts 리스트도 함께 반환)"""
     if posts is None:
         posts = read_json(settings.posts_file)
