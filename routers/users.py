@@ -27,31 +27,38 @@ CurrentUserId = Annotated[str, Depends(get_current_user_id)]
 
 @router.post("/users", response_model=UserCreateResponse,
              status_code=status.HTTP_201_CREATED)
-def create_user(user: UserCreateRequest) -> UserCreateResponse:
+async def create_user(user: UserCreateRequest) -> UserCreateResponse:
     """회원가입"""
-    users = read_json(settings.users_file)
-
-    # 이메일 중복 확인
-    if any(u["email"] == user.email for u in users):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Email already registered"
-        )
-
     new_id = f"user_{uuid.uuid4().hex}"
     now = datetime.now(UTC)
 
-    new_user = {
-        "id": new_id,
-        "email": user.email,
-        "nickname": user.nickname,
-        "password": hash_password(user.password),
-        "profile_img": user.profile_img,
-        "created_at": now.isoformat(),
-    }
-
-    users.append(new_user)
-    write_json(settings.users_file, users)
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        async with conn.cursor() as cur:
+            # 이메일 중복 확인
+            await cur.execute(
+                "SELECT 1 FROM users WHERE email = %s",
+                (user.email,),
+            )
+            if await cur.fetchone():
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Email already registered",
+                )
+            await cur.execute(
+                """
+                INSERT INTO users (id, email, nickname, password, profile_img, created_at)
+                VALUES (%(id)s, %(email)s, %(nickname)s, %(password)s, %(profile_img)s, %(created_at)s)
+                """,
+                {
+                    "id": new_id,
+                    "email": user.email,
+                    "nickname": user.nickname,
+                    "password": hash_password(user.password),
+                    "profile_img": user.profile_img,
+                    "created_at": now,
+                }
+            )
 
     return UserCreateResponse(
         id=new_id,
@@ -103,7 +110,7 @@ def get_auth_tokens(user: UserLoginRequest, response: Response) -> UserLoginResp
 
 @router.post("/auth/tokens/refresh", response_model=TokenRefreshResponse)
 def refresh_access_token(
-    refresh_token: str | None = Cookie(None, alias=REFRESH_TOKEN_COOKIE_KEY)
+        refresh_token: str | None = Cookie(None, alias=REFRESH_TOKEN_COOKIE_KEY)
 ) -> TokenRefreshResponse:
     """Access Token 갱신 (쿠키에서 refresh_token 읽음)"""
     if not refresh_token:
