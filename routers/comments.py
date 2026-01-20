@@ -13,7 +13,7 @@ from schemas.comment import (
     CommentUpdateResponse,
     CommentListResponse,
 )
-from utils.data import read_json, write_json
+from utils.database import read_json, write_json
 from utils.pagination import paginate
 
 COMMENT_PAGE_SIZE = 10

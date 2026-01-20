@@ -7,7 +7,7 @@ from config import settings
 from routers.users import CurrentUserId
 from schemas.commons import PostId, Page, Pagination
 from schemas.like import LikedListItem, ListPostILiked, LikeStatusResponse
-from utils.data import read_json, write_json
+from utils.database import read_json, write_json
 from utils.pagination import paginate
 
 LIKES_PAGE_SIZE = 20

@@ -13,7 +13,7 @@ from schemas.post import (
     PostUpdateRequest,
     ListPostsResponse,
     PostDetail)
-from utils.data import read_json, write_json
+from utils.database import read_json, write_json
 from utils.pagination import paginate
 
 PAGE_SIZE = 20
