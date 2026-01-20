@@ -72,18 +72,23 @@ REFRESH_TOKEN_COOKIE_KEY = "refresh_token"
 
 
 @router.post("/auth/tokens", response_model=UserLoginResponse)
-def get_auth_tokens(user: UserLoginRequest, response: Response) -> UserLoginResponse:
+async def get_auth_tokens(user: UserLoginRequest, response: Response) -> UserLoginResponse:
     """로그인"""
-    users = read_json(settings.users_file)
+    pool = get_pool()
 
-    # 이메일로 유저 찾기
-    db_user = next((u for u in users if u["email"] == user.email), None)
+    async with pool.acquire() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "SELECT id, password FROM users WHERE email = %s",
+                (user.email,)
+            )
+            db_user = await cur.fetchone()
 
     # 타이밍 공격 방지: 유저 존재 여부와 관계없이 항상 해시 비교 수행
     hashed_password = db_user["password"] if db_user else DUMMY_HASH
     is_password_correct = verify_password(user.password, hashed_password)
 
-    if not db_user or not is_password_correct:
+    if db_user is None or not is_password_correct:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -109,7 +114,7 @@ def get_auth_tokens(user: UserLoginRequest, response: Response) -> UserLoginResp
 
 
 @router.post("/auth/tokens/refresh", response_model=TokenRefreshResponse)
-def refresh_access_token(
+async def refresh_access_token(
         refresh_token: str | None = Cookie(None, alias=REFRESH_TOKEN_COOKIE_KEY)
 ) -> TokenRefreshResponse:
     """Access Token 갱신 (쿠키에서 refresh_token 읽음)"""
@@ -126,12 +131,18 @@ def refresh_access_token(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="invalid token",
         )
-    users = read_json(settings.users_file)
-    if not any(user["id"] == user_id for user in users):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="invalid token",
-        )
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "SELECT 1 FROM users WHERE id = %s",
+                (user_id,)
+            )
+            if not await cur.fetchone():
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="invalid token",
+                )
 
     # 새 access token 발급
     access_token = create_access_token(data={"sub": user_id})
