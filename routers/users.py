@@ -156,18 +156,28 @@ def logout(response: Response) -> None:
 
 
 @router.get("/users/me", response_model=UserMyProfile)
-def get_my_profile(user_id: CurrentUserId) -> UserMyProfile:
+async def get_my_profile(user_id: CurrentUserId) -> UserMyProfile:
     """내 프로필 조회"""
-    users = read_json(settings.users_file)
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                """
+                SELECT id, email, nickname, profile_img, created_at
+                FROM users
+                WHERE id = %s
+                """,
+                (user_id,)
+            )
+            user = await cur.fetchone()
 
-    user = next((u for u in users if u["id"] == user_id), None)
-    if not user:
+    if user is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
 
-    return user
+    return UserMyProfile(**user)
 
 
 @router.patch("/users/me", response_model=UserMyProfile)
