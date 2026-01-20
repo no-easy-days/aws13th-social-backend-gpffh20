@@ -16,7 +16,7 @@ from utils.auth import (
     hash_password, verify_password, create_access_token, create_refresh_token,
     decode_token, DUMMY_HASH, get_current_user_id
 )
-from utils.database import read_json, write_json
+from utils.database import read_json, write_json, get_pool
 
 router = APIRouter(
     tags=["USERS"],
@@ -174,18 +174,24 @@ def update_my_profile(user_id: CurrentUserId, update_data: UserUpdateRequest) ->
 
 
 @router.get("/users/{user_id}", response_model=UserProfile)
-def get_specific_user(user_id: UserId) -> UserProfile:
+async def get_specific_user(user_id: UserId) -> UserProfile:
     """특정 유저 프로필 조회"""
-    users = read_json(settings.users_file)
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "SELECT id, nickname, profile_img FROM users WHERE id = %s",
+                (user_id,)
+            )
+            user = await cur.fetchone()
 
-    user = next((u for u in users if u["id"] == user_id), None)
-    if not user:
+    if user is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
 
-    return user
+    return UserProfile(**user)
 
 
 @router.delete("/users/me", status_code=status.HTTP_204_NO_CONTENT)
