@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, status, Depends, Response, Cookie
 
 from config import settings
-from schemas.commons import UserId
+from schemas.commons import UserId, DbCursor
 from schemas.user import (
     UserMyProfile,
     UserUpdateRequest, UserProfile,
@@ -16,7 +16,6 @@ from utils.auth import (
     hash_password, verify_password, create_access_token, create_refresh_token,
     decode_token, DUMMY_HASH, get_current_user_id
 )
-from utils.database import read_json, write_json, get_pool
 
 router = APIRouter(
     tags=["USERS"],
@@ -27,38 +26,35 @@ CurrentUserId = Annotated[str, Depends(get_current_user_id)]
 
 @router.post("/users", response_model=UserCreateResponse,
              status_code=status.HTTP_201_CREATED)
-async def create_user(user: UserCreateRequest) -> UserCreateResponse:
+async def create_user(user: UserCreateRequest, cur: DbCursor) -> UserCreateResponse:
     """회원가입"""
     new_id = f"user_{uuid.uuid4().hex}"
     now = datetime.now(UTC)
 
-    pool = get_pool()
-    async with pool.acquire() as conn:
-        async with conn.cursor() as cur:
-            # 이메일 중복 확인
-            await cur.execute(
-                "SELECT 1 FROM users WHERE email = %s",
-                (user.email,),
-            )
-            if await cur.fetchone():
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="Email already registered",
-                )
-            await cur.execute(
-                """
-                INSERT INTO users (id, email, nickname, password, profile_img, created_at)
-                VALUES (%(id)s, %(email)s, %(nickname)s, %(password)s, %(profile_img)s, %(created_at)s)
-                """,
-                {
-                    "id": new_id,
-                    "email": user.email,
-                    "nickname": user.nickname,
-                    "password": hash_password(user.password),
-                    "profile_img": user.profile_img,
-                    "created_at": now,
-                }
-            )
+    # 이메일 중복 확인
+    await cur.execute(
+        "SELECT 1 FROM users WHERE email = %s",
+        (user.email,),
+    )
+    if await cur.fetchone():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email already registered",
+        )
+    await cur.execute(
+        """
+        INSERT INTO users (id, email, nickname, password, profile_img, created_at)
+        VALUES (%(id)s, %(email)s, %(nickname)s, %(password)s, %(profile_img)s, %(created_at)s)
+        """,
+        {
+            "id": new_id,
+            "email": user.email,
+            "nickname": user.nickname,
+            "password": hash_password(user.password),
+            "profile_img": user.profile_img,
+            "created_at": now,
+        }
+    )
 
     return UserCreateResponse(
         id=new_id,
@@ -72,17 +68,13 @@ REFRESH_TOKEN_COOKIE_KEY = "refresh_token"
 
 
 @router.post("/auth/tokens", response_model=UserLoginResponse)
-async def get_auth_tokens(user: UserLoginRequest, response: Response) -> UserLoginResponse:
+async def get_auth_tokens(user: UserLoginRequest, response: Response, cur: DbCursor) -> UserLoginResponse:
     """로그인"""
-    pool = get_pool()
-
-    async with pool.acquire() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                "SELECT id, password FROM users WHERE email = %s",
-                (user.email,)
-            )
-            db_user = await cur.fetchone()
+    await cur.execute(
+        "SELECT id, password FROM users WHERE email = %s",
+        (user.email,)
+    )
+    db_user = await cur.fetchone()
 
     # 타이밍 공격 방지: 유저 존재 여부와 관계없이 항상 해시 비교 수행
     hashed_password = db_user["password"] if db_user else DUMMY_HASH
@@ -115,6 +107,7 @@ async def get_auth_tokens(user: UserLoginRequest, response: Response) -> UserLog
 
 @router.post("/auth/tokens/refresh", response_model=TokenRefreshResponse)
 async def refresh_access_token(
+        cur: DbCursor,
         refresh_token: str | None = Cookie(None, alias=REFRESH_TOKEN_COOKIE_KEY)
 ) -> TokenRefreshResponse:
     """Access Token 갱신 (쿠키에서 refresh_token 읽음)"""
@@ -131,18 +124,16 @@ async def refresh_access_token(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="invalid token",
         )
-    pool = get_pool()
-    async with pool.acquire() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                "SELECT 1 FROM users WHERE id = %s",
-                (user_id,)
-            )
-            if not await cur.fetchone():
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="invalid token",
-                )
+
+    await cur.execute(
+        "SELECT 1 FROM users WHERE id = %s",
+        (user_id,)
+    )
+    if not await cur.fetchone():
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="invalid token",
+        )
 
     # 새 access token 발급
     access_token = create_access_token(data={"sub": user_id})
@@ -156,20 +147,17 @@ def logout(response: Response) -> None:
 
 
 @router.get("/users/me", response_model=UserMyProfile)
-async def get_my_profile(user_id: CurrentUserId) -> UserMyProfile:
+async def get_my_profile(user_id: CurrentUserId, cur: DbCursor) -> UserMyProfile:
     """내 프로필 조회"""
-    pool = get_pool()
-    async with pool.acquire() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
-                SELECT id, email, nickname, profile_img, created_at
-                FROM users
-                WHERE id = %s
-                """,
-                (user_id,)
-            )
-            user = await cur.fetchone()
+    await cur.execute(
+        """
+        SELECT id, email, nickname, profile_img, created_at
+        FROM users
+        WHERE id = %s
+        """,
+        (user_id,)
+    )
+    user = await cur.fetchone()
 
     if user is None:
         raise HTTPException(
@@ -181,51 +169,44 @@ async def get_my_profile(user_id: CurrentUserId) -> UserMyProfile:
 
 
 @router.patch("/users/me", response_model=UserMyProfile)
-async def update_my_profile(user_id: CurrentUserId, update_data: UserUpdateRequest) -> UserMyProfile:
+async def update_my_profile(user_id: CurrentUserId, update_data: UserUpdateRequest, cur: DbCursor) -> UserMyProfile:
     """내 프로필 수정"""
     # 전달된 필드만 추출
     update_fields = update_data.model_dump(exclude_unset=True)
-    print(update_fields)
 
     # 동적 SET 절 생성: "nickname = %(nickname)s, profile_img = %(profile_img)s"
     set_clause = ", ".join(f"{key} = %({key})s" for key in update_fields)
     update_fields["user_id"] = user_id
 
-    pool = get_pool()
-    async with pool.acquire() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                f"UPDATE users SET {set_clause} WHERE id = %(user_id)s",
-                update_fields
-            )
+    await cur.execute(
+        f"UPDATE users SET {set_clause} WHERE id = %(user_id)s",
+        update_fields
+    )
 
-            if cur.rowcount == 0:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="User not found"
-                )
+    if cur.rowcount == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
 
-            # 수정된 데이터 조회
-            await cur.execute(
-                "SELECT id, email, nickname, profile_img, created_at FROM users WHERE id = %s",
-                (user_id,)
-            )
-            user = await cur.fetchone()
+    # 수정된 데이터 조회
+    await cur.execute(
+        "SELECT id, email, nickname, profile_img, created_at FROM users WHERE id = %s",
+        (user_id,)
+    )
+    user = await cur.fetchone()
 
     return UserMyProfile(**user)
 
 
 @router.get("/users/{user_id}", response_model=UserProfile)
-async def get_specific_user(user_id: UserId) -> UserProfile:
+async def get_specific_user(user_id: UserId, cur: DbCursor) -> UserProfile:
     """특정 유저 프로필 조회"""
-    pool = get_pool()
-    async with pool.acquire() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                "SELECT id, nickname, profile_img FROM users WHERE id = %s",
-                (user_id,)
-            )
-            user = await cur.fetchone()
+    await cur.execute(
+        "SELECT id, nickname, profile_img FROM users WHERE id = %s",
+        (user_id,)
+    )
+    user = await cur.fetchone()
 
     if user is None:
         raise HTTPException(
@@ -237,16 +218,14 @@ async def get_specific_user(user_id: UserId) -> UserProfile:
 
 
 @router.delete("/users/me", status_code=status.HTTP_204_NO_CONTENT)
-def delete_my_account(user_id: CurrentUserId) -> None:
+async def delete_my_account(user_id: CurrentUserId, cur: DbCursor) -> None:
     """회원 탈퇴"""
-    users = read_json(settings.users_file)
-
-    user_index = next((i for i, user in enumerate(users) if user["id"] == user_id), None)
-    if user_index is None:
+    await cur.execute(
+        "DELETE FROM users WHERE id = %s",
+        (user_id,)
+    )
+    if cur.rowcount == 0:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
-
-    users.pop(user_index)
-    write_json(settings.users_file, users)

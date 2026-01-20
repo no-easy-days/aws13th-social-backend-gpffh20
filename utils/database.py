@@ -6,13 +6,28 @@ import json
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, AsyncGenerator
+
+from aiomysql import Cursor
 from fastapi import HTTPException, status
 from config import settings
 
 pool: aiomysql.Pool | None = None
 
 logger = logging.getLogger(__name__)
+
+
+def get_pool() -> aiomysql.Pool:
+    if pool is None:
+        raise RuntimeError("Database pool is not initialized")
+    return pool
+
+
+async def get_cursor() -> AsyncGenerator[Cursor, None]:
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        async with conn.cursor() as cur:
+            yield cur
 
 
 async def init_pool() -> None:
@@ -37,12 +52,6 @@ async def close_pool() -> None:
         pool.close()
         await pool.wait_closed()
         pool = None
-
-
-def get_pool() -> aiomysql.Pool:
-    if pool is None:
-        raise RuntimeError("Database pool is not initialized")
-    return pool
 
 
 def read_json(path: Path) -> Any:

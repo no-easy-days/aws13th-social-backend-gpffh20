@@ -1,6 +1,10 @@
 from typing import Annotated
 
+from aiomysql import Cursor
+from fastapi import Depends
 from pydantic import Field, BaseModel, StringConstraints
+
+from utils.database import get_cursor
 
 UserId = Annotated[
     str,
@@ -44,6 +48,8 @@ Title = Annotated[
 ]
 
 Count = Annotated[int, Field(ge=0)]
+
+DbCursor = Annotated[Cursor, Depends(get_cursor)]
 
 
 class Pagination(BaseModel):
