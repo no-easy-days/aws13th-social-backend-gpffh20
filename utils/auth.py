@@ -1,3 +1,4 @@
+import hashlib
 import hmac
 import logging
 from datetime import datetime, UTC, timedelta
@@ -44,6 +45,10 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     except ValueError:
         logger.warning("Invalid hash format detected")
         return False
+
+
+def hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:

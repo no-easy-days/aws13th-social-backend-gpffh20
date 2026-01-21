@@ -14,7 +14,7 @@ from schemas.user import (
 )
 from utils.auth import (
     hash_password, verify_password, create_access_token, create_refresh_token,
-    decode_token, DUMMY_HASH, get_current_user_id
+    decode_token, DUMMY_HASH, get_current_user_id, hash_token
 )
 
 router = APIRouter(
@@ -91,10 +91,10 @@ async def get_auth_tokens(user: UserLoginRequest, response: Response, cur: DbCur
     access_token = create_access_token(data=token_data)
     refresh_token = create_refresh_token(data=token_data)
 
-    # Refresh token을 DB에 저장
+    # Refresh token을 해싱해서 DB에 저장
     await cur.execute(
         "UPDATE users SET refresh_token = %s WHERE id = %s",
-        (refresh_token, db_user["id"])
+        (hash_token(refresh_token), db_user["id"])
     )
 
     # Refresh token을 HttpOnly 쿠키로 설정
@@ -146,7 +146,7 @@ async def refresh_access_token(
         )
 
     # 저장된 토큰과 비교
-    if db_user["refresh_token"] != refresh_token:
+    if db_user["refresh_token"] != hash_token(refresh_token):
         # 탈취 의심 → 토큰 무효화
         await cur.execute(
             "UPDATE users SET refresh_token = NULL WHERE id = %s",
@@ -162,13 +162,13 @@ async def refresh_access_token(
     new_access_token = create_access_token(data=token_data)
     new_refresh_token = create_refresh_token(data=token_data)
 
-    # 새 refresh token을 DB에 저장
+    # 새 refresh token을 해싱해서 DB에 저장
     await cur.execute(
         "UPDATE users SET refresh_token = %s WHERE id = %s",
-        (new_refresh_token, user_id)
+        (hash_token(new_refresh_token), user_id)
     )
 
-    # 새 refresh token을 쿠키에 설정
+    # 새 refresh token을 쿠키에 설정 (원본)
     response.set_cookie(
         key=REFRESH_TOKEN_COOKIE_KEY,
         value=new_refresh_token,
