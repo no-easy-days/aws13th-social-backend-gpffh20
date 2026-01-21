@@ -3,6 +3,7 @@ from datetime import datetime, UTC
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, status, Depends, Response, Cookie
+from aiomysql import IntegrityError
 
 from config import settings
 from schemas.commons import UserId, DbCursor
@@ -31,30 +32,26 @@ async def create_user(user: UserCreateRequest, cur: DbCursor) -> UserCreateRespo
     new_id = f"user_{uuid.uuid4().hex}"
     now = datetime.now(UTC)
 
-    # 이메일 중복 확인
-    await cur.execute(
-        "SELECT 1 FROM users WHERE email = %s",
-        (user.email,),
-    )
-    if await cur.fetchone():
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Email already registered",
+    try:
+        await cur.execute(
+            """
+            INSERT INTO users (id, email, nickname, password, profile_img, created_at)
+            VALUES (%(id)s, %(email)s, %(nickname)s, %(password)s, %(profile_img)s, %(created_at)s)
+            """,
+            {
+                "id": new_id,
+                "email": user.email,
+                "nickname": user.nickname,
+                "password": hash_password(user.password),
+                "profile_img": user.profile_img,
+                "created_at": now,
+            }
         )
-    await cur.execute(
-        """
-        INSERT INTO users (id, email, nickname, password, profile_img, created_at)
-        VALUES (%(id)s, %(email)s, %(nickname)s, %(password)s, %(profile_img)s, %(created_at)s)
-        """,
-        {
-            "id": new_id,
-            "email": user.email,
-            "nickname": user.nickname,
-            "password": hash_password(user.password),
-            "profile_img": user.profile_img,
-            "created_at": now,
-        }
-    )
+    except IntegrityError:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Email already registered",
+            )
 
     return UserCreateResponse(
         id=new_id,
