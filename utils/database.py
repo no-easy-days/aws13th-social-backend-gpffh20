@@ -27,7 +27,13 @@ async def get_cursor() -> AsyncGenerator[Cursor, None]:
     pool = get_pool()
     async with pool.acquire() as conn:
         async with conn.cursor() as cur:
-            yield cur
+            try:
+                yield cur
+                await conn.commit()
+            except Exception as e:
+                await conn.rollback()
+                logger.error("Failed to rollback transaction: %s", e)
+                raise
 
 
 async def init_pool() -> None:
@@ -39,7 +45,7 @@ async def init_pool() -> None:
         password=settings.db_password,
         db=settings.db_name,
         charset='utf8mb4',
-        autocommit=True,
+        autocommit=False,
         cursorclass=aiomysql.DictCursor,
         minsize=5,
         maxsize=20,
