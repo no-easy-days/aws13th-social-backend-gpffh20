@@ -11,17 +11,17 @@ from aiomysql import Cursor
 from fastapi import HTTPException, status
 from config import settings
 
-pool: aiomysql.Pool | None = None
+db_pool: aiomysql.Pool | None = None
 
 
-def get_pool() -> aiomysql.Pool:
-    if pool is None:
-        raise RuntimeError("Database pool is not initialized")
-    return pool
+def get_db_pool() -> aiomysql.Pool:
+    if db_pool is None:
+        raise RuntimeError("Database db_pool is not initialized")
+    return db_pool
 
 
 async def get_cursor() -> AsyncGenerator[Cursor, None]:
-    pool = get_pool()
+    pool = get_db_pool()
     async with pool.acquire() as conn:
         async with conn.cursor() as cur:
             try:
@@ -32,9 +32,9 @@ async def get_cursor() -> AsyncGenerator[Cursor, None]:
                 raise
 
 
-async def init_pool() -> None:
-    global pool
-    pool = await aiomysql.create_pool(
+async def init_db_pool() -> None:
+    global db_pool
+    db_pool = await aiomysql.create_pool(
         host=settings.db_host,
         port=settings.db_port,
         user=settings.db_user,
@@ -48,12 +48,12 @@ async def init_pool() -> None:
     )
 
 
-async def close_pool() -> None:
-    global pool
-    if pool:
-        pool.close()
-        await pool.wait_closed()
-        pool = None
+async def close_db_pool() -> None:
+    global db_pool
+    if db_pool:
+        db_pool.close()
+        await db_pool.wait_closed()
+        db_pool = None
 
 
 def read_json(path: Path) -> Any:
@@ -65,14 +65,12 @@ def read_json(path: Path) -> Any:
             return json.load(f)
 
     except json.JSONDecodeError as e:
-        logger.error("Corrupted JSON file: %s", path, exc_info=e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error while processing data.",
         ) from e
 
     except OSError as e:
-        logger.error("Failed to read JSON file: %s", path, exc_info=e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error while processing data.",
@@ -88,7 +86,6 @@ def write_json(path: Path, data: Any) -> None:
         tmp.replace(path)
 
     except OSError as e:
-        logger.error("Failed to write JSON file: %s", path, exc_info=e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error while processing data.",
