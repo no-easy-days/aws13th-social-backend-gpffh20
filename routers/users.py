@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, UTC
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, status, Depends, Response, Cookie
+from fastapi import APIRouter, HTTPException, status, Depends, Response, Cookie, Request
 from aiomysql import IntegrityError
 
 from config import settings
@@ -48,10 +48,10 @@ async def create_user(user: UserCreateRequest, cur: CurrentCursor) -> UserCreate
             }
         )
     except IntegrityError:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Email already registered",
-            )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email already registered",
+        )
 
     return UserCreateResponse(
         id=new_id,
@@ -65,7 +65,12 @@ REFRESH_TOKEN_COOKIE_KEY = "refresh_token"
 
 
 @router.post("/auth/tokens", response_model=UserLoginResponse)
-async def get_auth_tokens(user: UserLoginRequest, response: Response, cur: CurrentCursor) -> UserLoginResponse:
+async def get_auth_tokens(
+        user: UserLoginRequest,
+        request: Request,
+        response: Response,
+        cur: CurrentCursor
+) -> UserLoginResponse:
     """로그인"""
     await cur.execute(
         "SELECT id, password FROM users WHERE email = %s",
@@ -88,10 +93,21 @@ async def get_auth_tokens(user: UserLoginRequest, response: Response, cur: Curre
     access_token = create_access_token(data=token_data)
     refresh_token = create_refresh_token(data=token_data)
 
-    # Refresh token을 해싱해서 DB에 저장
+    # 세션 생성
+    session_id = f"sess_{uuid.uuid4().hex}"
+    device_info = request.headers.get("User-Agent", "Unknown")
+
     await cur.execute(
-        "UPDATE users SET refresh_token = %s WHERE id = %s",
-        (hash_token(refresh_token), db_user["id"])
+        """
+        INSERT INTO user_sessions (id, user_id, refresh_token, device_info)
+        VALUES (%(session_id)s, %(user_id)s, %(refresh_token)s, %(device_info)s)
+        """,
+        {
+            "session_id": session_id,
+            "user_id": db_user["id"],
+            "refresh_token": hash_token(refresh_token),
+            "device_info": device_info
+        }
     )
 
     # Refresh token을 HttpOnly 쿠키로 설정
@@ -129,29 +145,27 @@ async def refresh_access_token(
             detail="invalid token",
         )
 
-    # DB에서 저장된 refresh token 조회
+    # DB에서 해당 세션 조회 (해시된 토큰으로 검색)
+    hashed_token = hash_token(refresh_token)
     await cur.execute(
-        "SELECT refresh_token FROM users WHERE id = %s",
-        (user_id,)
+        "SELECT id, user_id FROM user_sessions WHERE refresh_token = %s",
+        (hashed_token,)
     )
-    db_user = await cur.fetchone()
+    session = await cur.fetchone()
 
-    if not db_user:
+    if not session:
+        # 토큰이 DB에 없음 → 이미 사용된 토큰 (탈취 의심)
+        # 해당 유저의 이 세션만 삭제 (세션 ID를 모르므로 user_id 기준으로는 불가)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="invalid token",
         )
 
-    # 저장된 토큰과 비교
-    if db_user["refresh_token"] != hash_token(refresh_token):
-        # 탈취 의심 → 토큰 무효화
-        await cur.execute(
-            "UPDATE users SET refresh_token = NULL WHERE id = %s",
-            (user_id,)
-        )
+    # user_id 일치 확인
+    if session["user_id"] != user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="token reuse detected",
+            detail="invalid token",
         )
 
     # 새 토큰 발급
@@ -159,10 +173,14 @@ async def refresh_access_token(
     new_access_token = create_access_token(data=token_data)
     new_refresh_token = create_refresh_token(data=token_data)
 
-    # 새 refresh token을 해싱해서 DB에 저장
+    # 새 refresh token으로 업데이트 + last_used_at 갱신
     await cur.execute(
-        "UPDATE users SET refresh_token = %s WHERE id = %s",
-        (hash_token(new_refresh_token), user_id)
+        """
+        UPDATE user_sessions
+        SET refresh_token = %s, last_used_at = CURRENT_TIMESTAMP
+        WHERE id = %s
+        """,
+        (hash_token(new_refresh_token), session["id"])
     )
 
     # 새 refresh token을 쿠키에 설정 (원본)
@@ -180,13 +198,18 @@ async def refresh_access_token(
 
 
 @router.post("/auth/logout", status_code=status.HTTP_204_NO_CONTENT)
-async def logout(user_id: CurrentUserId, response: Response, cur: CurrentCursor) -> None:
-    """로그아웃 (refresh_token 쿠키 삭제 + DB 토큰 무효화)"""
-    # DB에서 refresh token 삭제
-    await cur.execute(
-        "UPDATE users SET refresh_token = NULL WHERE id = %s",
-        (user_id,)
-    )
+async def logout(
+        response: Response,
+        cur: CurrentCursor,
+        refresh_token: str | None = Cookie(None, alias=REFRESH_TOKEN_COOKIE_KEY)
+) -> None:
+    """로그아웃 (refresh_token 쿠키 삭제 + DB 세션 삭제)"""
+    if refresh_token:
+        # 해당 세션만 삭제
+        await cur.execute(
+            "DELETE FROM user_sessions WHERE refresh_token = %s",
+            (hash_token(refresh_token),)
+        )
     response.delete_cookie(key=REFRESH_TOKEN_COOKIE_KEY, path="/")
 
 
@@ -216,7 +239,8 @@ ALLOWED_UPDATE_COLUMNS = frozenset({"nickname", "profile_img"})
 
 
 @router.patch("/users/me", response_model=UserMyProfile)
-async def update_my_profile(user_id: CurrentUserId, update_data: UserUpdateRequest, cur: CurrentCursor) -> UserMyProfile:
+async def update_my_profile(user_id: CurrentUserId, update_data: UserUpdateRequest,
+                            cur: CurrentCursor) -> UserMyProfile:
     """내 프로필 수정"""
     # 전달된 필드만 추출
     update_fields = update_data.model_dump(exclude_unset=True)
