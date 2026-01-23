@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, status, HTTPException
 
 from config import settings
 from routers.users import CurrentUserId
-from schemas.commons import Page, PostId, Pagination
+from schemas.commons import Page, PostId, Pagination, CurrentCursor
 from schemas.post import (
     ListPostsQuery,
     PostCreateRequest,
@@ -40,32 +40,48 @@ def _get_post_index_and_verify_author(posts: list, post_id: PostId, author_id: s
 
 
 @router.get("/posts", response_model=ListPostsResponse)
-def get_posts(query: ListPostsQuery = Depends()) -> ListPostsResponse:
+async def get_posts(cur: CurrentCursor, query: ListPostsQuery = Depends()) -> ListPostsResponse:
     """
     게시글 전체 목록 조회
     - 검색
     - 정렬(조회수, 좋아요수, 최신순)
     - 페이지네이션 (20개씩)
     """
-    posts = read_json(settings.posts_file)
+    offset = (query.page - 1) * PAGE_SIZE
 
-    # 검색
+    # 검색 조건
     if query.q:
-        q_lower = query.q.lower()
-        posts = [
-            post for post in posts
-            if q_lower in post["title"].lower() or q_lower in post["content"].lower()
-        ]
-    # 정렬
-    reverse = query.order == "desc"
-    posts.sort(key=lambda p: p.get(query.sort, 0), reverse=reverse)
+        search_pattern = f"%{query.q}%"
+        where_clause = "WHERE title LIKE %s OR content LIKE %s"
+        params = (search_pattern, search_pattern)
+    else:
+        where_clause = ""
+        params = ()
 
-    # 페이지네이션
-    paginated_posts, page, total_pages = paginate(posts, query.page, PAGE_SIZE)
+    # 총 개수 조회
+    await cur.execute(
+        f"SELECT COUNT(*) as total FROM posts {where_clause}",
+        params
+    )
+    total_count = (await cur.fetchone())["total"]
+    total_pages = (total_count + PAGE_SIZE - 1) // PAGE_SIZE or 1
+
+    # 게시글 목록 조회
+    await cur.execute(
+        f"""
+        SELECT id, author, title, view_count, like_count, created_at
+        FROM posts
+        {where_clause}
+        ORDER BY {query.sort.value} {query.order.value.upper()}
+        LIMIT %s OFFSET %s
+        """,
+        (*params, PAGE_SIZE, offset)
+    )
+    posts = await cur.fetchall()
 
     return ListPostsResponse(
-        data=[PostListItem(**p) for p in paginated_posts],
-        pagination=Pagination(page=page, total=total_pages)
+        data=[PostListItem(**p) for p in posts],
+        pagination=Pagination(page=query.page, total=total_pages)
     )
 
 
