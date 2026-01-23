@@ -88,26 +88,38 @@ async def get_posts(cur: CurrentCursor, query: ListPostsQuery = Depends()) -> Li
 # TODO: id가 아닌 닉네임이 표시되게 하기
 @router.post("/posts", response_model=PostListItem,
              status_code=status.HTTP_201_CREATED)
-def create_post(author_id: CurrentUserId, post: PostCreateRequest) -> PostListItem:
+async def create_post(author_id: CurrentUserId, post: PostCreateRequest, cur: CurrentCursor) -> PostListItem:
     """ 게시글 생성 """
-    posts = read_json(settings.posts_file)
-
     post_id = f"post_{uuid.uuid4().hex}"
     now = datetime.now(UTC)
 
-    new_post_model = PostDetail(
+    await cur.execute(
+        """
+        INSERT INTO posts (id, author_id, title, content, view_count, like_count, created_at, updated_at)
+        VALUES (%(id)s, %(author_id)s, %(title)s, %(content)s, %(view_count)s, %(like_count)s, %(created_at)s,
+                %(updated_at)s)
+        """,
+        {
+            "id": post_id,
+            "author_id": author_id,
+            "title": post.title,
+            "content": post.content,
+            "view_count": 0,
+            "like_count": 0,
+            "created_at": now,
+            "updated_at": now
+        }
+    )
+
+    new_post_model = PostListItem(
         id=post_id,
         author=author_id,
         title=post.title,
-        content=post.content,
         view_count=0,
         like_count=0,
         created_at=now,
-        updated_at=now,
     )
 
-    posts.append(new_post_model.model_dump(mode="json"))
-    write_json(settings.posts_file, posts)
     return new_post_model
 
 
