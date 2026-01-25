@@ -274,6 +274,12 @@ async def update_my_profile(user_id: CurrentUserId, update_data: UserUpdateReque
     )
     user = await cur.fetchone()
 
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
     return UserMyProfile(**user)
 
 

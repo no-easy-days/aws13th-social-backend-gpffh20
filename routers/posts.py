@@ -33,7 +33,7 @@ async def _verify_post_author(cur, post_id: PostId, author_id: str) -> None:
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Post not found"
         )
-
+    # TODO: Elasticsearch로 성능 개선 고려
     if post["author_id"] != author_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -141,6 +141,7 @@ async def get_posts_mine(user_id: CurrentUserId, cur: CurrentCursor, page: Page 
     total_pages = (total_count + PAGE_SIZE - 1) // PAGE_SIZE or 1
 
     # 내 게시글 목록 조회
+    # TODO: 트래픽 많아지면 redis 처리 고려
     await cur.execute(
         """
         SELECT id, author_id, title, view_count, like_count, created_at
@@ -180,6 +181,12 @@ async def get_single_post(post_id: PostId, cur: CurrentCursor) -> PostDetail:
     )
     post = await cur.fetchone()
 
+    if not post:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Post not found"
+        )
+
     return PostDetail(**post)
 
 
@@ -217,6 +224,12 @@ async def update_post(
         (post_id,)
     )
     post = await cur.fetchone()
+
+    if not post:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Post not found"
+        )
 
     return PostDetail(**post)
 
