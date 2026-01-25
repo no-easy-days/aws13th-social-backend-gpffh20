@@ -13,6 +13,7 @@ from schemas.post import (
     ListPostsResponse,
     PostDetail)
 
+
 PAGE_SIZE = 20
 
 router = APIRouter(
