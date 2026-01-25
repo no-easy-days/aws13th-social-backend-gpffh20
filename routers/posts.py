@@ -23,20 +23,27 @@ router = APIRouter(
 )
 
 
-def _get_post_index_and_verify_author(posts: list, post_id: PostId, author_id: str) -> int:
-    post_index = next((i for i, post in enumerate(posts) if post["id"] == post_id), None)
-    if post_index is None:
+async def _get_post_and_verify_author(cur, post_id: PostId, author_id: str) -> dict:
+    """게시글 조회 + 작성자 검증. 검증 통과 시 게시글 반환."""
+    await cur.execute(
+        "SELECT * FROM posts WHERE id = %s",
+        (post_id,)
+    )
+    post = await cur.fetchone()
+
+    if not post:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="post not found"
+            detail="Post not found"
         )
-    post = posts[post_index]
-    if post["author"] != author_id:
+
+    if post["author_id"] != author_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="not authorized to modify this post"
+            detail="Not authorized to modify this post"
         )
-    return post_index
+
+    return post
 
 
 @router.get("/posts", response_model=ListPostsResponse)
@@ -181,11 +188,11 @@ def update_post(author_id: CurrentUserId, post_id: PostId, update_data: PostUpda
 
 
 @router.delete("/posts/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_post(author_id: CurrentUserId, post_id: PostId) -> None:
+async def delete_post(author_id: CurrentUserId, post_id: PostId, cur: CurrentCursor) -> None:
     """게시글 삭제"""
-    posts = read_json(settings.posts_file)
+    await _get_post_and_verify_author(cur, post_id, author_id)
 
-    post_index = _get_post_index_and_verify_author(posts, post_id, author_id)
-
-    posts.pop(post_index)
-    write_json(settings.posts_file, posts)
+    await cur.execute(
+        "DELETE FROM posts WHERE id = %s",
+        (post_id,)
+    )
