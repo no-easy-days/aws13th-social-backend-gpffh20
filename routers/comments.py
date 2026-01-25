@@ -44,7 +44,7 @@ def _get_comment_index_and_verify_author(
 
 def _verify_post_exists(post_id: PostId) -> None:
     """게시글 존재 확인"""
-    # posts = read_json(settings.posts_file)
+    posts = read_json(settings.posts_file)
 
     if not any(p["id"] == post_id for p in posts):
         raise HTTPException(
@@ -54,22 +54,48 @@ def _verify_post_exists(post_id: PostId) -> None:
 
 
 @router.get("/posts/{post_id}/comments", response_model=CommentListResponse)
-def get_comments(post_id: PostId, page: Page = 1) -> CommentListResponse:
+async def get_comments(post_id: PostId, cur: CurrentCursor, page: Page = 1) -> CommentListResponse:
     """게시글의 댓글 목록 조회"""
-    _verify_post_exists(post_id)
-    comments = read_json(settings.comments_file)
+    # 게시글 존재 확인
+    await cur.execute(
+        "SELECT id FROM posts WHERE id = %s",
+        (post_id,)
+    )
+    if not await cur.fetchone():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Post not found"
+        )
 
-    # 해당 게시글의 댓글만 필터링
-    post_comments = [c for c in comments if c["post_id"] == post_id]
+    offset = (page - 1) * COMMENT_PAGE_SIZE
 
-    # 최신순 정렬
-    post_comments.sort(key=lambda c: c["created_at"], reverse=True)
+    # 총 개수 조회
+    await cur.execute(
+        "SELECT COUNT(*) as total FROM comments WHERE post_id = %s",
+        (post_id,)
+    )
+    total_count = (await cur.fetchone())["total"]
+    total_pages = (total_count + COMMENT_PAGE_SIZE - 1) // COMMENT_PAGE_SIZE or 1
 
-    # 페이지네이션
-    paginated_comments, page, total_pages = paginate(post_comments, page, COMMENT_PAGE_SIZE)
+    # 댓글 목록 조회 (최신순)
+    await cur.execute(
+        """
+        SELECT id, post_id, author_id, content, created_at
+        FROM comments
+        WHERE post_id = %(post_id)s
+        ORDER BY created_at DESC
+        LIMIT %(page_size)s OFFSET %(offset)s
+        """,
+        {
+            "post_id": post_id,
+            "page_size": COMMENT_PAGE_SIZE,
+            "offset": offset
+        }
+    )
+    comments = await cur.fetchall()
 
     return CommentListResponse(
-        data=[CommentBase(**c) for c in paginated_comments],
+        data=[CommentBase(**c) for c in comments],
         pagination=Pagination(page=page, total=total_pages)
     )
 
@@ -96,7 +122,7 @@ async def create_comment(
     await cur.execute(
         """
         INSERT INTO comments (id, post_id, author_id, content, created_at)
-        VALUES (%(comments_id)s, %(post_id)s, %(author_id)s, %(content)s, %(created_at)s)
+        VALUES (%(comment_id)s, %(post_id)s, %(author_id)s, %(content)s, %(created_at)s)
         """,
         {
             "comment_id": comment_id,

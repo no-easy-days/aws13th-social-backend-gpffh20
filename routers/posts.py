@@ -147,12 +147,16 @@ async def get_posts_mine(user_id: CurrentUserId, cur: CurrentCursor, page: Page 
         """
         SELECT id, author_id, title, view_count, like_count, created_at
         FROM posts
-        WHERE author_id = %s
+        WHERE author_id = %(author_id)s
         ORDER BY created_at DESC
-            LIMIT %s
-        OFFSET %s
+            LIMIT %(page_size)s
+        OFFSET %(offset)s
         """,
-        (user_id, PAGE_SIZE, offset)
+        {
+            "author_id": user_id,
+            "page_size": PAGE_SIZE,
+            "offset": offset
+        }
     )
     posts = await cur.fetchall()
 
