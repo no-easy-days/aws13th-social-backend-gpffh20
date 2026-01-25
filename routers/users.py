@@ -252,6 +252,7 @@ async def update_my_profile(user_id: CurrentUserId, update_data: UserUpdateReque
             detail="No valid fields to update"
         )
 
+
     # 동적 SET 절 생성
     set_clause = ", ".join(f"{key} = %({key})s" for key in update_fields)
     update_data = {**update_fields, "user_id": user_id}
