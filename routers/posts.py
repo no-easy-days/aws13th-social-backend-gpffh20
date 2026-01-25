@@ -3,7 +3,6 @@ from datetime import datetime, UTC
 
 from fastapi import APIRouter, Depends, status, HTTPException
 
-from config import settings
 from routers.users import CurrentUserId
 from schemas.commons import Page, PostId, Pagination, CurrentCursor
 from schemas.post import (
@@ -13,8 +12,6 @@ from schemas.post import (
     PostUpdateRequest,
     ListPostsResponse,
     PostDetail)
-from utils.database import read_json, write_json
-from utils.pagination import paginate
 
 PAGE_SIZE = 20
 
@@ -131,18 +128,34 @@ async def create_post(author_id: CurrentUserId, post: PostCreateRequest, cur: Cu
 
 
 @router.get("/posts/me", response_model=ListPostsResponse)
-def get_posts_mine(user_id: CurrentUserId, page: Page = 1) -> ListPostsResponse:
+async def get_posts_mine(user_id: CurrentUserId, cur: CurrentCursor, page: Page = 1) -> ListPostsResponse:
     """내가 작성한 게시글 목록"""
-    posts = read_json(settings.posts_file)
+    offset = (page - 1) * PAGE_SIZE
 
-    my_posts = [post for post in posts if post["author"] == user_id]
+    # 총 개수 조회
+    await cur.execute(
+        "SELECT COUNT(*) as total FROM posts WHERE author_id = %s",
+        (user_id,)
+    )
+    total_count = (await cur.fetchone())["total"]
+    total_pages = (total_count + PAGE_SIZE - 1) // PAGE_SIZE or 1
 
-    my_posts.sort(key=lambda post: post["created_at"], reverse=True)
-
-    paginated_posts, page, total_pages = paginate(my_posts, page, PAGE_SIZE)
+    # 내 게시글 목록 조회
+    await cur.execute(
+        """
+        SELECT id, author_id, title, view_count, like_count, created_at
+        FROM posts
+        WHERE author_id = %s
+        ORDER BY created_at DESC
+            LIMIT %s
+        OFFSET %s
+        """,
+        (user_id, PAGE_SIZE, offset)
+    )
+    posts = await cur.fetchall()
 
     return ListPostsResponse(
-        data=[PostListItem(**post) for post in paginated_posts],
+        data=[PostListItem(**post) for post in posts],
         pagination=Pagination(page=page, total=total_pages)
     )
 
