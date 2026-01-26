@@ -217,7 +217,7 @@ async def update_post(
     update_fields = update_data.model_dump(exclude_unset=True)
     set_clause, params = build_set_clause(update_fields, POST_UPDATE_COLUMN_MAP)
 
-    if set_clause is None:
+    if not set_clause:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No valid fields to update"
