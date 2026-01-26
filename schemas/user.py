@@ -40,7 +40,7 @@ Nickname = Annotated[
         strip_whitespace=True,
         min_length=1,
         max_length=10,
-        pattern=r"^[A-Za-z0-9]+$",
+        pattern=r"^[A-Za-z0-9가-힣]{1,10}$",
     ),
 ]
 
