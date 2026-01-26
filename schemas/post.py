@@ -1,17 +1,30 @@
 from datetime import datetime
-from typing import Annotated, Literal
+from enum import Enum
+from typing import Annotated
 
-from pydantic import StringConstraints, BaseModel, Field, model_validator
+from pydantic import StringConstraints, BaseModel, Field, model_validator, ConfigDict
 
 from schemas.commons import PostId, UserId, Pagination, Page, Content, Title, Count
 
 
+class SortColumn(str, Enum):
+    CREATED_AT = "created_at"
+    VIEW_COUNT = "view_count"
+    LIKE_COUNT = "like_count"
+
+
+class SortOrder(str, Enum):
+    ASC = "asc"
+    DESC = "desc"
+
+
 class PostListItem(BaseModel):
     id: PostId
-    author: UserId
+    author_id: UserId
     title: Title
     view_count: Count = 0
     like_count: Count = 0
+    comment_count: Count = 0
     created_at: datetime
 
 
@@ -21,13 +34,15 @@ class PostDetail(PostListItem):
 
 
 class ListPostsQuery(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
     q: Annotated[
         str | None,
         StringConstraints(strip_whitespace=True, min_length=1, max_length=20),
         Field(description="게시글 제목 또는 내용에 포함된 검색어")
     ] = None
-    sort: Literal["created_at", "view_count", "like_count"] = "created_at"
-    order: Literal["asc", "desc"] = "desc"
+    sort: SortColumn = SortColumn.CREATED_AT
+    order: SortOrder = SortOrder.DESC
     page: Page = 1
 
 
@@ -37,11 +52,15 @@ class ListPostsResponse(BaseModel):
 
 
 class PostCreateRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
     title: Title
     content: Content
 
 
 class PostUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
     title: Title | None = None
     content: Content | None = None
 

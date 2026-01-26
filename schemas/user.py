@@ -1,7 +1,7 @@
 from datetime import datetime
 import re
 
-from pydantic import BaseModel, EmailStr, model_validator, StringConstraints, AfterValidator
+from pydantic import BaseModel, EmailStr, model_validator, StringConstraints, AfterValidator, ConfigDict
 from typing import Annotated
 
 from schemas.commons import UserId
@@ -40,12 +40,14 @@ Nickname = Annotated[
         strip_whitespace=True,
         min_length=1,
         max_length=10,
-        pattern=r"^[A-Za-z0-9]+$",
+        pattern=r"^[A-Za-z0-9가-힣]{1,10}$",
     ),
 ]
 
 
 class UserCreateRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
     email: EmailStr
     password: Password
     nickname: Nickname
@@ -60,6 +62,8 @@ class UserCreateResponse(BaseModel):
 
 
 class UserLoginRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
     email: EmailStr
     password: str
 
@@ -82,6 +86,8 @@ class UserMyProfile(BaseModel):
 
 
 class UserUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
     nickname: Nickname | None = None
     profile_img: str | None = None
 

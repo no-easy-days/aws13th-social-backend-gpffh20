@@ -17,6 +17,7 @@ from utils.auth import (
     hash_password, verify_password, create_access_token, create_refresh_token,
     decode_token, DUMMY_HASH, get_current_user_id, hash_token
 )
+from utils.query import build_set_clause
 
 router = APIRouter(
     tags=["USERS"],
@@ -235,30 +236,45 @@ async def get_my_profile(user_id: CurrentUserId, cur: CurrentCursor) -> UserMyPr
     return UserMyProfile(**user)
 
 
-ALLOWED_UPDATE_COLUMNS = frozenset({"nickname", "profile_img"})
+# SQL Injection 방어: UPDATE 허용 필드 -> DB 컬럼 명시적 매핑
+USER_UPDATE_COLUMN_MAP = {
+    "nickname": "nickname",
+    "profile_img": "profile_img",
+}
 
 
 @router.patch("/users/me", response_model=UserMyProfile)
 async def update_my_profile(user_id: CurrentUserId, update_data: UserUpdateRequest,
                             cur: CurrentCursor) -> UserMyProfile:
     """내 프로필 수정"""
-    # 전달된 필드만 추출
-    update_fields = update_data.model_dump(exclude_unset=True)
-    update_fields = {k: v for k, v in update_fields.items() if k in ALLOWED_UPDATE_COLUMNS}
+    # 먼저 사용자 조회
+    await cur.execute(
+        "SELECT id, email, nickname, profile_img, created_at FROM users WHERE id = %s",
+        (user_id,)
+    )
+    user = await cur.fetchone()
 
-    if not update_fields:
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    # 안전한 SET 절 생성
+    update_fields = update_data.model_dump(exclude_unset=True)
+    set_clause, params = build_set_clause(update_fields, USER_UPDATE_COLUMN_MAP)
+
+    if not set_clause:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No valid fields to update"
         )
 
-    # 동적 SET 절 생성: "nickname = %(nickname)s, profile_img = %(profile_img)s"
-    set_clause = ", ".join(f"{key} = %({key})s" for key in update_fields)
-    update_data = {**update_fields, "user_id": user_id}
+    query_params = {**params, "user_id": user_id}
 
     await cur.execute(
         f"UPDATE users SET {set_clause} WHERE id = %(user_id)s",
-        update_data
+        query_params
     )
 
     if cur.rowcount == 0:
@@ -267,14 +283,8 @@ async def update_my_profile(user_id: CurrentUserId, update_data: UserUpdateReque
             detail="User not found"
         )
 
-    # 수정된 데이터 조회
-    await cur.execute(
-        "SELECT id, email, nickname, profile_img, created_at FROM users WHERE id = %s",
-        (user_id,)
-    )
-    user = await cur.fetchone()
-
-    return UserMyProfile(**user)
+    # 조회한 데이터 + 변경값으로 응답
+    return UserMyProfile(**{**user, **params})
 
 
 @router.get("/users/{user_id}", response_model=UserProfile)
