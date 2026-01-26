@@ -85,7 +85,7 @@ async def get_posts(cur: CurrentCursor, query: ListPostsQuery = Depends()) -> Li
     # 게시글 목록 조회
     await cur.execute(
         f"""
-        SELECT id, author_id, title, view_count, like_count, created_at
+        SELECT id, author_id, title, view_count, like_count, comment_count, created_at
         FROM posts
         {where_clause}
         ORDER BY {sort_column} {sort_order}, created_at DESC
@@ -111,8 +111,8 @@ async def create_post(author_id: CurrentUserId, post: PostCreateRequest, cur: Cu
 
     await cur.execute(
         """
-        INSERT INTO posts (id, author_id, title, content, view_count, like_count, created_at, updated_at)
-        VALUES (%(id)s, %(author_id)s, %(title)s, %(content)s, %(view_count)s, %(like_count)s, %(created_at)s,
+        INSERT INTO posts (id, author_id, title, content, view_count, like_count, comment_count, created_at, updated_at)
+        VALUES (%(id)s, %(author_id)s, %(title)s, %(content)s, %(view_count)s, %(like_count)s, %(comment_count)s, %(created_at)s,
                 %(updated_at)s)
         """,
         {
@@ -122,6 +122,7 @@ async def create_post(author_id: CurrentUserId, post: PostCreateRequest, cur: Cu
             "content": post.content,
             "view_count": 0,
             "like_count": 0,
+            "comment_count": 0,
             "created_at": now,
             "updated_at": now
         }
@@ -134,6 +135,7 @@ async def create_post(author_id: CurrentUserId, post: PostCreateRequest, cur: Cu
         content=post.content,
         view_count=0,
         like_count=0,
+        comment_count=0,
         created_at=now,
         updated_at=now
     )
@@ -158,7 +160,7 @@ async def get_posts_mine(user_id: CurrentUserId, cur: CurrentCursor, page: Page 
     # TODO: 트래픽 많아지면 redis 처리 고려
     await cur.execute(
         """
-        SELECT id, author_id, title, view_count, like_count, created_at
+        SELECT id, author_id, title, view_count, like_count, comment_count, created_at
         FROM posts
         WHERE author_id = %(author_id)s
         ORDER BY created_at DESC

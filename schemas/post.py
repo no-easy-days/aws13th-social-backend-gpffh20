@@ -24,6 +24,7 @@ class PostListItem(BaseModel):
     title: Title
     view_count: Count = 0
     like_count: Count = 0
+    comment_count: Count = 0
     created_at: datetime
 
 

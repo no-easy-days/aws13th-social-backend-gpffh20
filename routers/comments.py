@@ -45,7 +45,7 @@ async def get_comments(post_id: PostId, cur: CurrentCursor, page: Page = 1) -> C
 
     # 총 개수 조회
     await cur.execute(
-        "SELECT COUNT(*) as total FROM comments WHERE post_id = %s",
+        "SELECT comment_count as total FROM posts WHERE post_id = %s",
         (post_id,)
     )
     total_count = (await cur.fetchone())["total"]
