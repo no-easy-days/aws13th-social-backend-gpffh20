@@ -118,9 +118,9 @@ async def update_comment(
         cur: CurrentCursor
 ) -> CommentBase:
     """댓글 수정"""
-    # 댓글 존재 + 작성자 확인
+    # 댓글 조회 + 작성자 확인
     await cur.execute(
-        "SELECT author_id FROM comments WHERE id = %s AND post_id = %s",
+        "SELECT id, post_id, author_id, content, created_at FROM comments WHERE id = %s AND post_id = %s",
         (comment_id, post_id)
     )
     comment = await cur.fetchone()
@@ -184,8 +184,8 @@ async def delete_comment(
         )
 
     await cur.execute(
-        "DELETE FROM comments WHERE id = %s",
-        (comment_id,)
+        "DELETE FROM comments WHERE id = %s AND author_id = %s",
+        (comment_id, user_id)
     )
 
 
