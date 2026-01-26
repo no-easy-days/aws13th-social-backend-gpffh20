@@ -172,29 +172,22 @@ async def get_posts_mine(user_id: CurrentUserId, cur: CurrentCursor, page: Page 
 async def get_single_post(post_id: PostId, cur: CurrentCursor) -> PostDetail:
     """게시글 상세 조회"""
     await cur.execute(
-        "UPDATE posts SET view_count = view_count + 1 WHERE id = %s",
+        "SELECT * FROM posts WHERE id = %s",
         (post_id,)
     )
-
-    if cur.rowcount == 0:
+    post = await cur.fetchone()
+    if post is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Post not found"
         )
 
     await cur.execute(
-        "SELECT * FROM posts WHERE id = %s",
+        "UPDATE posts SET view_count = view_count + 1 WHERE id = %s",
         (post_id,)
     )
-    post = await cur.fetchone()
 
-    if not post:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Post not found"
-        )
-
-    return PostDetail(**post)
+    return PostDetail(**{**post, "view_count": post["view_count"] + 1})
 
 
 ALLOWED_POST_UPDATE_COLUMNS = frozenset({"title", "content"})
