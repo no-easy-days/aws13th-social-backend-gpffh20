@@ -56,8 +56,7 @@ async def get_comments(post_id: PostId, cur: CurrentCursor, page: Page = 1) -> C
         FROM comments
         WHERE post_id = %(post_id)s
         ORDER BY created_at DESC
-            LIMIT %(page_size)s
-        OFFSET %(offset)s
+        LIMIT %(page_size)s OFFSET %(offset)s
         """,
         {
             "post_id": post_id,
@@ -222,8 +221,7 @@ async def get_comments_mine(user_id: CurrentUserId, cur: CurrentCursor, page: Pa
         FROM comments
         WHERE author_id = %s
         ORDER BY created_at DESC
-            LIMIT %s
-        OFFSET %s
+        LIMIT %s OFFSET %s
         """,
         (user_id, COMMENT_PAGE_SIZE, offset)
     )

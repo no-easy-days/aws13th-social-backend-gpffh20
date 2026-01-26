@@ -162,8 +162,7 @@ async def get_posts_mine(user_id: CurrentUserId, cur: CurrentCursor, page: Page 
         FROM posts
         WHERE author_id = %(author_id)s
         ORDER BY created_at DESC
-            LIMIT %(page_size)s
-        OFFSET %(offset)s
+        LIMIT %(page_size)s OFFSET %(offset)s
         """,
         {
             "author_id": user_id,
