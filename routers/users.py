@@ -4,9 +4,11 @@ from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, status, Depends, Response, Cookie, Request
 from aiomysql import IntegrityError
+from sqlalchemy import select
 
 from config import settings
-from schemas.commons import UserId, CurrentCursor
+from db.models.user import User
+from schemas.commons import UserId, CurrentCursor, DBSession
 from schemas.user import (
     UserMyProfile,
     UserUpdateRequest, UserProfile,
@@ -220,17 +222,10 @@ async def logout(
 
 
 @router.get("/users/me", response_model=UserMyProfile)
-async def get_my_profile(user_id: CurrentUserId, cur: CurrentCursor) -> UserMyProfile:
+async def get_my_profile(user_id: CurrentUserId, db: DBSession) -> UserMyProfile:
     """내 프로필 조회"""
-    await cur.execute(
-        """
-        SELECT id, email, nickname, profile_img, created_at
-        FROM users
-        WHERE id = %s
-        """,
-        (user_id,)
-    )
-    user = await cur.fetchone()
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
 
     if user is None:
         raise HTTPException(
@@ -238,7 +233,7 @@ async def get_my_profile(user_id: CurrentUserId, cur: CurrentCursor) -> UserMyPr
             detail="User not found"
         )
 
-    return UserMyProfile(**user)
+    return user
 
 
 @router.patch("/users/me", response_model=UserMyProfile)
