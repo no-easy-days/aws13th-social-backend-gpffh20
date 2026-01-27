@@ -25,8 +25,6 @@ async def get_cursor() -> AsyncGenerator[Cursor, None]:
     async with pool.acquire() as conn:
         async with conn.cursor() as cur:
             try:
-                await conn.begin()
-                await conn.set_isolation_level('READ_COMMITTED')
                 yield cur
                 await conn.commit()
             except Exception:
