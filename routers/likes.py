@@ -112,25 +112,23 @@ async def create_like(post_id: PostId, user_id: CurrentUserId, cur: CurrentCurso
 @router.delete("/posts/{post_id}/likes", response_model=LikeStatusResponse)
 async def delete_like(post_id: PostId, user_id: CurrentUserId, cur: CurrentCursor) -> LikeStatusResponse:
     """좋아요 취소"""
-    # 게시글 존재 확인
-    await cur.execute("SELECT id FROM posts WHERE id = %s", (post_id,))
-    if not await cur.fetchone():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Post not found"
-        )
-
-    # 좋아요 삭제 (rowcount로 존재 여부 확인)
     await cur.execute(
         "DELETE FROM likes WHERE post_id = %s AND user_id = %s",
         (post_id, user_id)
     )
 
     if cur.rowcount == 0:
+        await cur.execute("SELECT id FROM posts WHERE id = %s", (post_id,))
+        if not await cur.fetchone():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Post not found"
+            )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Like not found"
         )
+
     # 트리거가 like_count 자동 감소
     await cur.execute("SELECT like_count FROM posts WHERE id = %s", (post_id,))
     post = await cur.fetchone()
