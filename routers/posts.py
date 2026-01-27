@@ -19,8 +19,8 @@ PAGE_SIZE = 20
 
 # SQL Injection 방어: ORDER BY 절 전체 하드코딩
 ORDER_BY_MAP = {
-    ("created_at", "desc"): "ORDER BY created_at DESC, created_at DESC",
-    ("created_at", "asc"): "ORDER BY created_at ASC, created_at DESC",
+    ("created_at", "desc"): "ORDER BY created_at DESC",
+    ("created_at", "asc"): "ORDER BY created_at ASC",
     ("view_count", "desc"): "ORDER BY view_count DESC, created_at DESC",
     ("view_count", "asc"): "ORDER BY view_count ASC, created_at DESC",
     ("like_count", "desc"): "ORDER BY like_count DESC, created_at DESC",
