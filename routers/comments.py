@@ -2,11 +2,10 @@ import uuid
 from datetime import datetime, UTC
 
 from fastapi import APIRouter, HTTPException, status
-from pymysql import IntegrityError
+from aiomysql import IntegrityError
 
 from routers.users import CurrentUserId
 from schemas.commons import PostId, Page, CommentId, Pagination, CurrentCursor
-from utils.query import build_set_clause
 from schemas.comment import (
     CommentCreateRequest,
     CommentBase,
@@ -18,10 +17,8 @@ COMMENT_PAGE_SIZE = 10
 
 # TODO: COUNT(*) -> redis 연결로 성능 개선
 
-# SQL Injection 방어: UPDATE 허용 필드 -> DB 컬럼 명시적 매핑
-COMMENT_UPDATE_COLUMN_MAP = {
-    "content": "content",
-}
+# UPDATE 허용 필드 whitelist
+ALLOWED_COMMENT_UPDATE_FIELDS = frozenset(["content"])
 
 router = APIRouter(
     tags=["COMMENTS"],
@@ -46,7 +43,7 @@ async def get_comments(post_id: PostId, cur: CurrentCursor, page: Page = 1) -> C
 
     # 총 개수 조회
     await cur.execute(
-        "SELECT comment_count as total FROM posts WHERE post_id = %s",
+        "SELECT comment_count as total FROM posts WHERE id = %s",
         (post_id,)
     )
     total_count = (await cur.fetchone())["total"]
@@ -122,7 +119,11 @@ async def update_comment(
     """댓글 수정"""
     # 댓글 조회 + 작성자 확인
     await cur.execute(
-        "SELECT id, post_id, author_id, content, created_at FROM comments WHERE id = %s AND post_id = %s",
+        """
+        SELECT id, post_id, author_id, content, created_at
+        FROM comments WHERE id = %s AND post_id = %s
+        FOR UPDATE
+        """,
         (comment_id, post_id)
     )
     comment = await cur.fetchone()
@@ -139,21 +140,18 @@ async def update_comment(
             detail="Not authorized to modify this comment"
         )
 
-    # 안전한 SET 절 생성
+    # whitelist 검증
     update_fields = update_data.model_dump(exclude_unset=True)
-    set_clause, params = build_set_clause(update_fields, COMMENT_UPDATE_COLUMN_MAP)
-
-    if not set_clause:
+    field_keys = frozenset(update_fields.keys())
+    if not field_keys.issubset(ALLOWED_COMMENT_UPDATE_FIELDS):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No valid fields to update"
+            detail=f"Invalid update fields: {field_keys}"
         )
 
-    query_params = {**params, "comment_id": comment_id, "author_id": user_id}
-
     await cur.execute(
-        f"UPDATE comments SET {set_clause} WHERE id = %(comment_id)s AND author_id = %(author_id)s",
-        query_params
+        "UPDATE comments SET content = %(content)s WHERE id = %(comment_id)s AND author_id = %(author_id)s",
+        {"content": update_data.content, "comment_id": comment_id, "author_id": user_id}
     )
     if cur.rowcount == 0:
         raise HTTPException(
@@ -165,9 +163,10 @@ async def update_comment(
         id=comment["id"],
         post_id=comment["post_id"],
         author_id=comment["author_id"],
-        content=params.get("content", comment["content"]),
+        content=update_data.content,
         created_at=comment["created_at"],
     )
+
 
 @router.delete("/posts/{post_id}/comments/{comment_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_comment(
@@ -175,7 +174,7 @@ async def delete_comment(
     """댓글 삭제"""
     # 댓글 존재 + 작성자 확인
     await cur.execute(
-        "SELECT author_id FROM comments WHERE id = %s AND post_id = %s",
+        "SELECT author_id FROM comments WHERE id = %s AND post_id = %s FOR UPDATE",
         (comment_id, post_id)
     )
     comment = await cur.fetchone()

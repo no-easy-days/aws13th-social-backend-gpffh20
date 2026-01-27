@@ -17,14 +17,19 @@ from utils.auth import (
     hash_password, verify_password, create_access_token, create_refresh_token,
     decode_token, DUMMY_HASH, get_current_user_id, hash_token
 )
-from utils.query import build_set_clause
 
 router = APIRouter(
     tags=["USERS"],
 )
 
 CurrentUserId = Annotated[str, Depends(get_current_user_id)]
+ALLOWED_PROFILE_UPDATE_FIELDS = frozenset(["nickname", "profile_img"])
 
+PROFILE_SET_CLAUSE_MAP = {
+    frozenset(["nickname"]): "nickname = %(nickname)s",
+    frozenset(["profile_img"]): "profile_img = %(profile_img)s",
+    frozenset(["nickname", "profile_img"]): "nickname = %(nickname)s, profile_img = %(profile_img)s",
+}
 
 @router.post("/users", response_model=UserCreateResponse,
              status_code=status.HTTP_201_CREATED)
@@ -236,20 +241,17 @@ async def get_my_profile(user_id: CurrentUserId, cur: CurrentCursor) -> UserMyPr
     return UserMyProfile(**user)
 
 
-# SQL Injection 방어: UPDATE 허용 필드 -> DB 컬럼 명시적 매핑
-USER_UPDATE_COLUMN_MAP = {
-    "nickname": "nickname",
-    "profile_img": "profile_img",
-}
-
-
 @router.patch("/users/me", response_model=UserMyProfile)
 async def update_my_profile(user_id: CurrentUserId, update_data: UserUpdateRequest,
                             cur: CurrentCursor) -> UserMyProfile:
     """내 프로필 수정"""
     # 먼저 사용자 조회
     await cur.execute(
-        "SELECT id, email, nickname, profile_img, created_at FROM users WHERE id = %s",
+        """
+        SELECT id, email, nickname, profile_img, created_at 
+        FROM users WHERE id = %s
+        FOR UPDATE
+        """,
         (user_id,)
     )
     user = await cur.fetchone()
@@ -260,20 +262,26 @@ async def update_my_profile(user_id: CurrentUserId, update_data: UserUpdateReque
             detail="User not found"
         )
 
-    # 안전한 SET 절 생성
+    # whitelist 검증 + SET 절 하드코딩 매핑
     update_fields = update_data.model_dump(exclude_unset=True)
-    set_clause, params = build_set_clause(update_fields, USER_UPDATE_COLUMN_MAP)
+    field_keys = frozenset(update_fields.keys())
+    if not field_keys.issubset(ALLOWED_PROFILE_UPDATE_FIELDS):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid fields: {field_keys}"
+        )
 
+    set_clause = PROFILE_SET_CLAUSE_MAP.get(field_keys)
     if not set_clause:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No valid fields to update"
         )
 
-    query_params = {**params, "user_id": user_id}
+    query_params = {**update_fields, "user_id": user_id}
 
     await cur.execute(
-        f"UPDATE users SET {set_clause} WHERE id = %(user_id)s",
+        "UPDATE users SET " + set_clause + " WHERE id = %(user_id)s",
         query_params
     )
 
@@ -284,7 +292,7 @@ async def update_my_profile(user_id: CurrentUserId, update_data: UserUpdateReque
         )
 
     # 조회한 데이터 + 변경값으로 응답
-    return UserMyProfile(**{**user, **params})
+    return UserMyProfile(**{**user, **update_fields})
 
 
 @router.get("/users/{user_id}", response_model=UserProfile)
