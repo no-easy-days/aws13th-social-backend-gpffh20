@@ -106,7 +106,7 @@ async def delete_like(post_id: PostId, user_id: CurrentUserId, cur: CurrentCurso
         )
 
     # 트리거가 like_count 자동 감소
-    await cur.execute("SELECT like_count FROM posts WHERE id = %s FOR UPDATE", (post_id,))
+    await cur.execute("SELECT like_count FROM posts WHERE id = %s", (post_id,))
     post = await cur.fetchone()
 
     return LikeStatusResponse(
