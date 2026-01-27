@@ -3,12 +3,9 @@ from datetime import datetime, UTC
 from aiomysql import IntegrityError
 from fastapi import APIRouter, HTTPException, status
 
-from config import settings
 from routers.users import CurrentUserId
 from schemas.commons import PostId, Page, Pagination, CurrentCursor
 from schemas.like import LikedListItem, ListPostILiked, LikeStatusResponse
-from utils.database import read_json, write_json
-from utils.pagination import paginate
 
 LIKES_PAGE_SIZE = 20
 
@@ -18,34 +15,34 @@ router = APIRouter(
 
 
 @router.get("/posts/liked", response_model=ListPostILiked)
-def get_posts_liked(user_id: CurrentUserId, page: Page = 1) -> ListPostILiked:
+async def get_posts_liked(user_id: CurrentUserId, cur: CurrentCursor, page: Page = 1) -> ListPostILiked:
     """내가 좋아요한 게시글 목록"""
-    likes = read_json(settings.likes_file)
-    posts = read_json(settings.posts_file)
+    offset = (page - 1) * LIKES_PAGE_SIZE
 
-    # 내가 좋아요한 post_id 목록 (최신순 정렬)
-    my_likes = sorted((like for like in likes if like['user_id'] == user_id), key=lambda like: like['created_at'], reverse=True)
-    liked_post_ids = [like["post_id"] for like in my_likes]
+    # 총 개수 조회
+    await cur.execute(
+        "SELECT COUNT(*) as total FROM likes WHERE user_id = %s",
+        (user_id,)
+    )
+    total_count = (await cur.fetchone())["total"]
+    total_pages = (total_count + LIKES_PAGE_SIZE - 1) // LIKES_PAGE_SIZE or 1
 
-    # 좋아요한 게시글 정보 가져오기 (좋아요 순서 유지)
-    posts_dict = {post["id"]: post for post in posts}
-    liked_posts = [
-        posts_dict[post_id] for post_id in liked_post_ids
-        if post_id in posts_dict
-    ]
-
-    paginated_posts, actual_page, total_pages = paginate(liked_posts, page, LIKES_PAGE_SIZE)
+    await cur.execute(
+        """
+        SELECT p.id as post_id, p.author_id as author, p.title, p.view_count, p.like_count, p.created_at
+        FROM likes l
+        JOIN posts p ON l.post_id = p.id
+        WHERE l.user_id = %s
+        ORDER BY l.created_at DESC
+        LIMIT %s OFFSET %s
+        """,
+        (user_id, LIKES_PAGE_SIZE, offset)
+    )
+    liked_posts = await cur.fetchall()
 
     return ListPostILiked(
-        data=[LikedListItem(
-            post_id=post["id"],
-            author=post["author"],
-            title=post["title"],
-            view_count=post.get("view_count", 0),
-            like_count=post.get("like_count", 0),
-            created_at=post["created_at"]
-        ) for post in paginated_posts],
-        pagination=Pagination(page=actual_page, total=total_pages)
+        data=[LikedListItem(**post) for post in liked_posts],
+        pagination=Pagination(page=page, total=total_pages)
     )
 
 
