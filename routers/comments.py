@@ -142,7 +142,7 @@ async def update_comment(
     assert field_keys.issubset(ALLOWED_COMMENT_UPDATE_FIELDS), f"Invalid fields: {field_keys}"
 
     await cur.execute(
-        "UPDATE comments SET content = %(content)s WHERE id = %(comment_id)s AND author_id = %(author_id)s",
+        "UPDATE comments SET content = %(content)s WHERE id = %(comment_id)s AND author_id = %(author_id)s FOR UPDATE",
         {"content": update_data.content, "comment_id": comment_id, "author_id": user_id}
     )
     if cur.rowcount == 0:
@@ -183,7 +183,7 @@ async def delete_comment(
         )
 
     await cur.execute(
-        "DELETE FROM comments WHERE id = %s AND author_id = %s",
+        "DELETE FROM comments WHERE id = %s AND author_id = %s FOR UPDATE",
         (comment_id, user_id)
     )
 

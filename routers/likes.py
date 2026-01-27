@@ -76,7 +76,7 @@ async def create_like(post_id: PostId, user_id: CurrentUserId, cur: CurrentCurso
         )
 
     # 트리거가 like_count 자동 증가
-    await cur.execute("SELECT like_count FROM posts WHERE id = %s", (post_id,))
+    await cur.execute("SELECT like_count FROM posts WHERE id = %s FOR UPDATE", (post_id,))
     post = await cur.fetchone()
 
     return LikeStatusResponse(
@@ -89,7 +89,7 @@ async def create_like(post_id: PostId, user_id: CurrentUserId, cur: CurrentCurso
 async def delete_like(post_id: PostId, user_id: CurrentUserId, cur: CurrentCursor) -> LikeStatusResponse:
     """좋아요 취소"""
     await cur.execute(
-        "DELETE FROM likes WHERE post_id = %s AND user_id = %s",
+        "DELETE FROM likes WHERE post_id = %s AND user_id = %s FOR UPDATE",
         (post_id, user_id)
     )
 

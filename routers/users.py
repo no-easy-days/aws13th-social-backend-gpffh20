@@ -273,7 +273,7 @@ async def update_my_profile(user_id: CurrentUserId, update_data: UserUpdateReque
     query_params = {**update_fields, "user_id": user_id}
 
     await cur.execute(
-        f"UPDATE users SET {set_clause} WHERE id = %(user_id)s",
+        f"UPDATE users SET {set_clause} WHERE id = %(user_id)s FOR UPDATE",
         query_params
     )
 

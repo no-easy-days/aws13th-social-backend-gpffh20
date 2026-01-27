@@ -198,22 +198,23 @@ async def get_posts_mine(user_id: CurrentUserId, cur: CurrentCursor, page: Page 
 async def get_single_post(post_id: PostId, cur: CurrentCursor) -> PostDetail:
     """게시글 상세 조회"""
     await cur.execute(
+        "UPDATE posts SET view_count = view_count + 1 WHERE id = %s",
+        (post_id,)
+    )
+
+    await cur.execute(
         "SELECT * FROM posts WHERE id = %s",
         (post_id,)
     )
-    post = await cur.fetchone()
-    if post is None:
+
+    updated_post = await cur.fetchone()
+    if updated_post is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Post not found"
         )
 
-    await cur.execute(
-        "UPDATE posts SET view_count = view_count + 1 WHERE id = %s",
-        (post_id,)
-    )
-
-    return PostDetail(**{**post, "view_count": post["view_count"] + 1})
+    return PostDetail(**updated_post)
 
 
 @router.patch("/posts/{post_id}", response_model=PostDetail)
@@ -238,7 +239,11 @@ async def update_post(
     query_params = {**update_fields, "post_id": post_id, "author_id": author_id, "updated_at": now}
 
     await cur.execute(
-        f"UPDATE posts SET {set_clause}, updated_at = %(updated_at)s WHERE id = %(post_id)s AND author_id = %(author_id)s",
+        """
+        UPDATE posts
+        SET {set_clause}, updated_at = %(updated_at)s
+        WHERE id = %(post_id)s AND author_id = %(author_id)s FOR UPDATE
+        """,
         query_params
     )
 
@@ -257,6 +262,6 @@ async def delete_post(author_id: CurrentUserId, post_id: PostId, cur: CurrentCur
     """게시글 삭제"""
     await _get_verified_post(cur, post_id, author_id)
     await cur.execute(
-        "DELETE FROM posts WHERE id = %s AND author_id = %s",
+        "DELETE FROM posts WHERE id = %s AND author_id = %s FOR UPDATE",
         (post_id, author_id)
     )
