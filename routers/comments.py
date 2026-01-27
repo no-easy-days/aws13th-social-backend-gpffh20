@@ -159,6 +159,7 @@ async def update_comment(
         created_at=comment["created_at"],
     )
 
+
 @router.delete("/posts/{post_id}/comments/{comment_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_comment(
         post_id: PostId, comment_id: CommentId, user_id: CurrentUserId, cur: CurrentCursor) -> None:
