@@ -1,11 +1,11 @@
-import uuid
 from datetime import datetime, UTC
 
+from aiomysql import IntegrityError
 from fastapi import APIRouter, HTTPException, status
 
 from config import settings
 from routers.users import CurrentUserId
-from schemas.commons import PostId, Page, Pagination
+from schemas.commons import PostId, Page, Pagination, CurrentCursor
 from schemas.like import LikedListItem, ListPostILiked, LikeStatusResponse
 from utils.database import read_json, write_json
 from utils.pagination import paginate
@@ -72,34 +72,36 @@ def get_posts_liked(user_id: CurrentUserId, page: Page = 1) -> ListPostILiked:
 
 @router.post("/posts/{post_id}/likes", response_model=LikeStatusResponse,
              status_code=status.HTTP_201_CREATED)
-def create_like(post_id: PostId, user_id: CurrentUserId) -> LikeStatusResponse:
+async def create_like(post_id: PostId, user_id: CurrentUserId, cur: CurrentCursor) -> LikeStatusResponse:
     """좋아요 등록"""
-    post, posts = _get_post_or_404(post_id)
-    likes = read_json(settings.likes_file)
+    # 게시글 존재 확인
+    await cur.execute("SELECT id FROM posts WHERE id = %s", (post_id,))
+    if not await cur.fetchone():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Post not found"
+        )
 
-    # 이미 좋아요한 경우 확인
-    if any(like["post_id"] == post_id and like["user_id"] == user_id for like in likes):
+    # 좋아요 등록 (복합 PK이므로 중복 시 IntegrityError)
+    now = datetime.now(UTC)
+    try:
+        await cur.execute(
+            "INSERT INTO likes (post_id, user_id, created_at) VALUES (%s, %s, %s)",
+            (post_id, user_id, now)
+        )
+    except IntegrityError:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Already liked"
         )
 
-    new_like = {
-        "id": f"like_{uuid.uuid4().hex}",
-        "post_id": post_id,
-        "user_id": user_id,
-        "created_at": datetime.now(UTC).isoformat(),
-    }
-
-    likes.append(new_like)
-    write_json(settings.likes_file, likes)
-
-    new_like_count = post.get("like_count", 0) + 1
-    _update_post_like_count(posts, post_id, 1)
+    # 트리거가 like_count 자동 증가
+    await cur.execute("SELECT like_count FROM posts WHERE id = %s", (post_id,))
+    post = await cur.fetchone()
 
     return LikeStatusResponse(
         liked=True,
-        like_count=new_like_count,
+        like_count=post["like_count"] if post else 1,
     )
 
 

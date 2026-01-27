@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, UTC
 
 from fastapi import APIRouter, HTTPException, status
-from pymysql import IntegrityError
+from aiomysql import IntegrityError
 
 from routers.users import CurrentUserId
 from schemas.commons import PostId, Page, CommentId, Pagination, CurrentCursor
