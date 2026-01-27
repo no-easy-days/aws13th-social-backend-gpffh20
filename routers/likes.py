@@ -86,8 +86,12 @@ async def create_like(post_id: PostId, user_id: CurrentUserId, cur: CurrentCurso
     now = datetime.now(UTC)
     try:
         await cur.execute(
-            "INSERT INTO likes (post_id, user_id, created_at) VALUES (%s, %s, %s)",
-            (post_id, user_id, now)
+            "INSERT INTO likes (post_id, user_id, created_at) VALUES (%(post_id)s, %(user_id)s, %(created_at)s)",
+            {
+                "post_id": post_id,
+                "user_id": user_id,
+                "created_at":now
+            }
         )
     except IntegrityError:
         raise HTTPException(
@@ -105,27 +109,37 @@ async def create_like(post_id: PostId, user_id: CurrentUserId, cur: CurrentCurso
     )
 
 
-@router.delete("/posts/{post_id}/likes", status_code=status.HTTP_204_NO_CONTENT)
-def delete_like(post_id: PostId, user_id: CurrentUserId) -> None:
+@router.delete("/posts/{post_id}/likes", response_model=LikeStatusResponse)
+async def delete_like(post_id: PostId, user_id: CurrentUserId, cur: CurrentCursor) -> LikeStatusResponse:
     """좋아요 취소"""
-    _, posts = _get_post_or_404(post_id)
-    likes = read_json(settings.likes_file)
+    # 게시글 존재 확인
+    await cur.execute("SELECT id FROM posts WHERE id = %s", (post_id,))
+    if not await cur.fetchone():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Post not found"
+        )
 
-    like_index = next(
-        (i for i, like in enumerate(likes) if like["post_id"] == post_id and like["user_id"] == user_id),
-        None
+    # 좋아요 삭제 (rowcount로 존재 여부 확인)
+    await cur.execute(
+        "DELETE FROM likes WHERE post_id = %s AND user_id = %s",
+        (post_id, user_id)
     )
-    if like_index is None:
+
+    if cur.rowcount == 0:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Like not found"
         )
+    # 트리거가 like_count 자동 감소
+    await cur.execute("SELECT like_count FROM posts WHERE id = %s", (post_id,))
+    post = await cur.fetchone()
 
-    likes.pop(like_index)
-    write_json(settings.likes_file, likes)
+    return LikeStatusResponse(
+        liked=False,
+        like_count=post["like_count"] if post else 0,
+    )
 
-    # 게시글 좋아요 수 감소 (이미 읽은 posts 재사용)
-    _update_post_like_count(posts, post_id, -1)
 
 
 @router.get("/posts/{post_id}/likes", response_model=LikeStatusResponse)
