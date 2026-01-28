@@ -44,29 +44,6 @@ router = APIRouter(
 )
 
 
-async def _get_verified_post(cur, post_id: PostId, author_id: str) -> dict:
-    """게시글 존재 여부 + 작성자 검증 후 전체 데이터 반환."""
-    await cur.execute(
-        "SELECT * FROM posts WHERE id = %s FOR UPDATE",
-        (post_id,)
-    )
-    post = await cur.fetchone()
-
-    if not post:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Post not found"
-        )
-
-    if post["author_id"] != author_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to modify this post"
-        )
-
-    return post
-
-
 @router.get("/posts", response_model=ListPostsResponse)
 async def get_posts(cur: CurrentCursor, query: ListPostsQuery = Depends()) -> ListPostsResponse:
     """
@@ -164,7 +141,8 @@ async def get_posts_mine(user_id: CurrentUserId, cur: CurrentCursor, page: Page 
         FROM posts
         WHERE author_id = %(author_id)s
         ORDER BY created_at DESC
-        LIMIT %(page_size)s OFFSET %(offset)s
+            LIMIT %(page_size)s
+        OFFSET %(offset)s
         """,
         {
             "author_id": user_id,
@@ -181,26 +159,19 @@ async def get_posts_mine(user_id: CurrentUserId, cur: CurrentCursor, page: Page 
 
 
 @router.get("/posts/{post_id}", response_model=PostDetail)
-async def get_single_post(post_id: PostId, cur: CurrentCursor) -> PostDetail:
+async def get_single_post(post_id: PostId, db: DBSession) -> PostDetail:
     """게시글 상세 조회"""
-    await cur.execute(
-        "UPDATE posts SET view_count = view_count + 1 WHERE id = %s",
-        (post_id,)
-    )
-
-    await cur.execute(
-        "SELECT * FROM posts WHERE id = %s",
-        (post_id,)
-    )
-
-    updated_post = await cur.fetchone()
-    if updated_post is None:
+    result = await db.execute(select(Post).where(Post.id == post_id))
+    post = result.scalar_one_or_none()
+    if post is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Post not found"
         )
+    post.view_count += 1
+    await db.flush()
 
-    return PostDetail(**updated_post)
+    return PostDetail.model_validate(post)
 
 
 @router.patch("/posts/{post_id}", response_model=PostDetail)
