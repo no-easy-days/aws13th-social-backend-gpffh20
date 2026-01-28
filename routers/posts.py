@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, UTC
 
 from fastapi import APIRouter, Depends, status, HTTPException
-from sqlalchemy import select, delete
+from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError
 from db.models.post import Post
 from db.models.user import User
@@ -142,39 +142,29 @@ async def create_post(author_id: CurrentUserId, post: PostCreateRequest, db: DBS
 
 
 @router.get("/posts/me", response_model=ListPostsResponse)
-async def get_posts_mine(user_id: CurrentUserId, cur: CurrentCursor, page: Page = 1) -> ListPostsResponse:
+async def get_posts_mine(user_id: CurrentUserId, db: DBSession, page: Page = 1) -> ListPostsResponse:
     """내가 작성한 게시글 목록"""
     offset = (page - 1) * PAGE_SIZE
 
     # 총 개수 조회
-    await cur.execute(
-        "SELECT COUNT(*) as total FROM posts WHERE author_id = %s",
-        (user_id,)
+    count_result = await db.execute(
+        select(func.count()).select_from(Post).where(Post.author_id == user_id)
     )
-    total_count = (await cur.fetchone())["total"]
+    total_count = count_result.scalar()
     total_pages = (total_count + PAGE_SIZE - 1) // PAGE_SIZE or 1
 
     # 내 게시글 목록 조회
-    # TODO: 트래픽 많아지면 redis 처리 고려
-    await cur.execute(
-        """
-        SELECT id, author_id, title, view_count, like_count, comment_count, created_at
-        FROM posts
-        WHERE author_id = %(author_id)s
-        ORDER BY created_at DESC
-            LIMIT %(page_size)s
-        OFFSET %(offset)s
-        """,
-        {
-            "author_id": user_id,
-            "page_size": PAGE_SIZE,
-            "offset": offset
-        }
+    result = await db.execute(
+        select(Post)
+        .where(Post.author_id == user_id)
+        .order_by(Post.created_at.desc())
+        .limit(PAGE_SIZE)
+        .offset(offset)
     )
-    posts = await cur.fetchall()
+    posts = result.scalars().all()
 
     return ListPostsResponse(
-        data=[PostListItem(**post) for post in posts],
+        data=[PostListItem.model_validate(post) for post in posts],
         pagination=Pagination(page=page, total=total_pages)
     )
 
