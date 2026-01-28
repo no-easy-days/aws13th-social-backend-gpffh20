@@ -79,6 +79,12 @@ class PostCreateRequest(BaseModel):
     content: Content
 
 
+class PostCreateResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: PostId
+
+
 class PostUpdateRequest(BaseModel):
     model_config = ConfigDict(extra='forbid')
 

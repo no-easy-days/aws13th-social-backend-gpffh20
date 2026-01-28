@@ -5,12 +5,12 @@ from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy import select, func, or_
 from sqlalchemy.orm import joinedload
 from db.models.post import Post
-from db.models.user import User
 from routers.users import CurrentUserId
 from schemas.commons import Page, PostId, Pagination, DBSession
 from schemas.post import (
     ListPostsQuery,
     PostCreateRequest,
+    PostCreateResponse,
     PostListItem,
     PostUpdateRequest,
     ListPostsResponse,
@@ -107,18 +107,10 @@ async def get_posts(db: DBSession, query: ListPostsQuery = Depends()) -> ListPos
     )
 
 
-@router.post("/posts", response_model=PostListItem,
+@router.post("/posts", response_model=PostCreateResponse,
              status_code=status.HTTP_201_CREATED)
-async def create_post(author_id: CurrentUserId, post: PostCreateRequest, db: DBSession) -> PostListItem:
+async def create_post(author_id: CurrentUserId, post: PostCreateRequest, db: DBSession) -> PostCreateResponse:
     """ 게시글 생성 """
-    result = await db.execute(select(User).where(User.id == author_id))
-    user = result.scalar_one_or_none()
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found"
-        )
-
     now = datetime.now(UTC)
 
     new_post = Post(
@@ -129,12 +121,11 @@ async def create_post(author_id: CurrentUserId, post: PostCreateRequest, db: DBS
         created_at=now,
         updated_at=now,
     )
-    new_post.author = user
 
     db.add(new_post)
     await db.flush()
 
-    return PostDetail.model_validate(new_post)
+    return PostCreateResponse.model_validate(new_post)
 
 
 @router.get("/posts/me", response_model=MyPostsResponse)
@@ -175,9 +166,9 @@ async def get_single_post(post_id: PostId, db: DBSession) -> PostDetail:
     return PostDetail.model_validate(post)
 
 
-@router.patch("/posts/{post_id}", response_model=PostDetail)
+@router.patch("/posts/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def update_post(
-        author_id: CurrentUserId, post_id: PostId, update_data: PostUpdateRequest, db: DBSession) -> PostDetail:
+        author_id: CurrentUserId, post_id: PostId, update_data: PostUpdateRequest, db: DBSession) -> None:
     """게시글 수정"""
     post = await get_post_or_404(db, post_id)
     check_post_author(post, author_id)
@@ -188,8 +179,6 @@ async def update_post(
     post.updated_at = datetime.now(UTC)
 
     await db.flush()
-
-    return PostDetail.model_validate(post)
 
 
 @router.delete("/posts/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
