@@ -111,6 +111,8 @@ class UserUpdateRequest(BaseModel):
 
 
 class UserProfile(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: UserId
     nickname: Nickname
     profile_img: str | None = None

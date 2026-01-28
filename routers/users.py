@@ -272,21 +272,18 @@ async def update_my_profile(user_id: CurrentUserId, update_data: UserUpdateReque
 
 
 @router.get("/users/{user_id}", response_model=UserProfile)
-async def get_specific_user(user_id: UserId, cur: CurrentCursor) -> UserProfile:
+async def get_specific_user(user_id: UserId, db: DBSession) -> UserProfile:
     """특정 유저 프로필 조회"""
-    await cur.execute(
-        "SELECT id, nickname, profile_img FROM users WHERE id = %s",
-        (user_id,)
+    result = await db.execute(
+        select(User).where(User.id == user_id)
     )
-    user = await cur.fetchone()
-
+    user = result.scalar_one_or_none()
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
-
-    return UserProfile(**user)
+    return UserProfile.model_validate(user)
 
 
 @router.delete("/users/me", status_code=status.HTTP_204_NO_CONTENT)
