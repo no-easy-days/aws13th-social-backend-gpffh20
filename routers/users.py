@@ -95,13 +95,12 @@ async def get_auth_tokens(
     token_data = {"sub": db_user.id}
     access_token = create_access_token(data=token_data)
     refresh_token = create_refresh_token(data=token_data)
-    hashed_refresh_token = hash_token(refresh_token)
 
     # 세션 생성
     new_session = UserSession(
         id=f"session_{uuid.uuid4().hex}",
         user_id=db_user.id,
-        refresh_token=hashed_refresh_token,
+        refresh_token=hash_token(refresh_token),
         device_info=request.headers.get("User-Agent", "Unknown"),
     )
 
@@ -119,7 +118,7 @@ async def get_auth_tokens(
         path="/",
     )
 
-    return UserLoginResponse(access_token=access_token, refresh_token=hashed_refresh_token)
+    return UserLoginResponse(access_token=access_token)
 
 
 @router.post("/auth/tokens/refresh", response_model=TokenRefreshResponse)
@@ -184,7 +183,7 @@ async def refresh_access_token(
         path="/",
     )
 
-    return TokenRefreshResponse(access_token=new_access_token, refresh_token=session.refresh_token)
+    return TokenRefreshResponse(access_token=new_access_token)
 
 
 @router.post("/auth/logout", status_code=status.HTTP_204_NO_CONTENT)
