@@ -33,7 +33,7 @@ class PostListItem(BaseModel):
     @computed_field
     @property
     def author_nickname(self) -> str:
-        return self.author.nickname
+        return self.author.nickname if self.author else "Unknown"
 
 
 class PostDetail(PostListItem):
