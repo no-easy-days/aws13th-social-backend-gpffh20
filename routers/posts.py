@@ -2,12 +2,11 @@ import uuid
 from datetime import datetime, UTC
 
 from fastapi import APIRouter, Depends, status, HTTPException
-from sqlalchemy import select, func
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import select, func, or_
 from db.models.post import Post
 from db.models.user import User
 from routers.users import CurrentUserId
-from schemas.commons import Page, PostId, Pagination, CurrentCursor, DBSession
+from schemas.commons import Page, PostId, Pagination, DBSession
 from schemas.post import (
     ListPostsQuery,
     PostCreateRequest,
@@ -20,24 +19,14 @@ from schemas.post import (
 
 PAGE_SIZE = 20
 
-# SQL Injection 방어: ORDER BY 절 전체 하드코딩
-ORDER_BY_MAP = {
-    ("created_at", "desc"): "ORDER BY created_at DESC",
-    ("created_at", "asc"): "ORDER BY created_at ASC",
-    ("view_count", "desc"): "ORDER BY view_count DESC, created_at DESC",
-    ("view_count", "asc"): "ORDER BY view_count ASC, created_at DESC",
-    ("like_count", "desc"): "ORDER BY like_count DESC, created_at DESC",
-    ("like_count", "asc"): "ORDER BY like_count ASC, created_at DESC",
-}
+# 정렬 옵션 매핑
+def get_order_by(sort: str, order: str) -> list:
+    column = getattr(Post, sort)
+    ordered = column.desc() if order == "desc" else column.asc()
+    if sort != "created_at":
+        return [ordered, Post.created_at.desc()]
+    return [ordered]
 
-# UPDATE 허용 필드 whitelist
-ALLOWED_POST_UPDATE_FIELDS = frozenset(["title", "content"])
-
-POST_SET_CLAUSE_MAP = {
-    frozenset(["title"]): "title = %(title)s",
-    frozenset(["content"]): "content = %(content)s",
-    frozenset(["title", "content"]): "title = %(title)s, content = %(content)s",
-}
 
 router = APIRouter(
     tags=["POSTS"],
@@ -66,7 +55,7 @@ def check_post_author(post: Post, author_id: str) -> None:
 
 
 @router.get("/posts", response_model=ListPostsResponse)
-async def get_posts(cur: CurrentCursor, query: ListPostsQuery = Depends()) -> ListPostsResponse:
+async def get_posts(db: DBSession, query: ListPostsQuery = Depends()) -> ListPostsResponse:
     """
     게시글 전체 목록 조회
     - 검색
@@ -75,43 +64,35 @@ async def get_posts(cur: CurrentCursor, query: ListPostsQuery = Depends()) -> Li
     """
     offset = (query.page - 1) * PAGE_SIZE
 
-    # ORDER BY 절 전체 하드코딩 + 검증
-    order_by_key = (query.sort.value, query.order.value)
-    assert order_by_key in ORDER_BY_MAP, f"Invalid sort: {order_by_key}"
-    order_by_clause = ORDER_BY_MAP[order_by_key]
-
     # 검색 조건
+    where_condition = None
     if query.q:
         search_pattern = f"%{query.q}%"
-        where_clause = "WHERE title LIKE %s OR content LIKE %s"
-        search_params = (search_pattern, search_pattern)
-    else:
-        where_clause = ""
-        search_params = ()
+        where_condition = or_(
+            Post.title.like(search_pattern),
+            Post.content.like(search_pattern)
+        )
 
     # 총 개수 조회
-    await cur.execute(
-        f"SELECT COUNT(*) as total FROM posts {where_clause}",
-        search_params
-    )
-    total_count = (await cur.fetchone())["total"]
+    count_query = select(func.count()).select_from(Post)
+    if where_condition is not None:
+        count_query = count_query.where(where_condition)
+    count_result = await db.execute(count_query)
+    total_count = count_result.scalar()
     total_pages = (total_count + PAGE_SIZE - 1) // PAGE_SIZE or 1
 
     # 게시글 목록 조회
-    await cur.execute(
-        f"""
-        SELECT id, author_id, title, view_count, like_count, comment_count, created_at
-        FROM posts
-        {where_clause}
-        {order_by_clause}
-        LIMIT %s OFFSET %s
-        """,
-        (*search_params, PAGE_SIZE, offset)
-    )
-    posts = await cur.fetchall()
+    posts_query = select(Post)
+    if where_condition is not None:
+        posts_query = posts_query.where(where_condition)
+    posts_query = posts_query.order_by(*get_order_by(query.sort.value, query.order.value))
+    posts_query = posts_query.limit(PAGE_SIZE).offset(offset)
+
+    result = await db.execute(posts_query)
+    posts = result.scalars().all()
 
     return ListPostsResponse(
-        data=[PostListItem(**p) for p in posts],
+        data=[PostListItem.model_validate(post) for post in posts],
         pagination=Pagination(page=query.page, total=total_pages)
     )
 
