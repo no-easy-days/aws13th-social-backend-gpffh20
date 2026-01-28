@@ -246,7 +246,7 @@ async def update_post(
 @router.delete("/posts/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_post(author_id: CurrentUserId, post_id: PostId, db: DBSession) -> None:
     """게시글 삭제"""
-    result = await db.execute(delete(Post).where(Post.id == post_id, Post.author_id == author_id))
+    result = await db.execute(select(Post).where(Post.id == post_id))
     post = result.scalar_one_or_none()
 
     if post is None:
