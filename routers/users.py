@@ -34,6 +34,7 @@ PROFILE_SET_CLAUSE_MAP = {
     frozenset(["nickname", "profile_img"]): "nickname = %(nickname)s, profile_img = %(profile_img)s",
 }
 
+
 @router.post("/users", response_model=UserCreateResponse,
              status_code=status.HTTP_201_CREATED)
 async def create_user(user: UserCreateRequest, db: DBSession) -> UserCreateResponse:
@@ -54,7 +55,6 @@ async def create_user(user: UserCreateRequest, db: DBSession) -> UserCreateRespo
             status_code=status.HTTP_409_CONFLICT,
             detail="Email already registered",
         )
-    await db.refresh(new_user)
 
     return UserCreateResponse.model_validate(new_user)
 
@@ -164,7 +164,9 @@ async def refresh_access_token(
 
     # 새 refresh token으로 업데이트 + last_used_at 갱신
     session.refresh_token = hash_token(new_refresh_token)
-    session.last_used_at = datetime.now(UTC)
+    now = datetime.now(UTC)
+    if now - session.last_used_at > timedelta(hours=1):
+        session.last_used_at = now
 
     # 새 refresh token을 쿠키에 설정 (원본)
     response.set_cookie(
@@ -256,4 +258,3 @@ async def delete_my_account(user_id: CurrentUserId, db: DBSession) -> None:
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
-
