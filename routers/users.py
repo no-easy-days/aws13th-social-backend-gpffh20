@@ -290,14 +290,12 @@ async def get_specific_user(user_id: UserId, cur: CurrentCursor) -> UserProfile:
 
 
 @router.delete("/users/me", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_my_account(user_id: CurrentUserId, cur: CurrentCursor) -> None:
+async def delete_my_account(user_id: CurrentUserId, db: DBSession) -> None:
     """회원 탈퇴"""
-    await cur.execute(
-        "DELETE FROM users WHERE id = %s",
-        (user_id,)
-    )
-    if cur.rowcount == 0:
+    result = await db.execute(delete(User).where(User.id == user_id))
+    if result.rowcount == 0:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
+
