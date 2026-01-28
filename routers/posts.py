@@ -107,7 +107,12 @@ async def get_posts(db: DBSession, query: ListPostsQuery = Depends()) -> ListPos
 async def create_post(author_id: CurrentUserId, post: PostCreateRequest, db: DBSession) -> PostListItem:
     """ 게시글 생성 """
     result = await db.execute(select(User).where(User.id == author_id))
-    user = result.scalar_one()
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found"
+        )
 
     now = datetime.now(UTC)
 
