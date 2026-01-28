@@ -23,7 +23,7 @@ class PostItemBase(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: PostId
-    author_id: UserId
+    author_id: UserId | None
     title: Title
     view_count: Count = 0
     like_count: Count = 0
