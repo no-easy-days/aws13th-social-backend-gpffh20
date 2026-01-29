@@ -16,7 +16,6 @@ from schemas.comment import (
 
 COMMENT_PAGE_SIZE = 10
 
-# TODO: COUNT(*) -> redis 연결로 성능 개선
 
 router = APIRouter(
     tags=["COMMENTS"],
