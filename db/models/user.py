@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from db.models.post import Post
     from db.models.comment import Comment
 
+
 class User(Base):
     __tablename__ = "users"
 

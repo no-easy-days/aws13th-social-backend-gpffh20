@@ -27,4 +27,3 @@ class Post(Base):
 
     author: Mapped["User | None"] = relationship(back_populates="posts", lazy="selectin")
     comments: Mapped[list["Comment"]] = relationship(back_populates="post", lazy="selectin")
-    
