@@ -24,5 +24,5 @@ class Post(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
-    author: Mapped["User | None"] = relationship()
+    author: Mapped["User | None"] = relationship(lazy="selectin")
     
