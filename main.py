@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     await init_db_pool()
     await init_redis_pool()
-    scheduler_task = asyncio.create_task(view_count_scheduler(60))
+    scheduler_task = asyncio.create_task(view_count_scheduler(600))
 
     yield
     scheduler_task.cancel()
