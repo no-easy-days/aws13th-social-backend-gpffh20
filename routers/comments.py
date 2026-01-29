@@ -1,8 +1,7 @@
 import uuid
-from datetime import datetime, UTC
 
 from fastapi import APIRouter, HTTPException, status
-from aiomysql import IntegrityError
+from sqlalchemy import select
 
 from db.models.comment import Comment
 from routers.users import CurrentUserId
@@ -154,14 +153,14 @@ async def update_comment(
 
 @router.delete("/posts/{post_id}/comments/{comment_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_comment(
-        post_id: PostId, comment_id: CommentId, user_id: CurrentUserId, cur: CurrentCursor) -> None:
+        post_id: PostId, comment_id: CommentId, user_id: CurrentUserId, db: DBSession) -> None:
     """댓글 삭제"""
-    # 댓글 존재 + 작성자 확인
-    await cur.execute(
-        "SELECT author_id FROM comments WHERE id = %s AND post_id = %s FOR UPDATE",
-        (comment_id, post_id)
+    result = await db.execute(
+        select(Comment)
+        .where(Comment.id == comment_id, Comment.post_id == post_id)
+        .with_for_update()
     )
-    comment = await cur.fetchone()
+    comment = result.scalar_one_or_none()
 
     if not comment:
         raise HTTPException(
@@ -169,16 +168,13 @@ async def delete_comment(
             detail="Comment not found"
         )
 
-    if comment["author_id"] != user_id:
+    if comment.author_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to delete this comment"
         )
 
-    await cur.execute(
-        "DELETE FROM comments WHERE id = %s AND author_id = %s",
-        (comment_id, user_id)
-    )
+    await db.delete(comment)
 
 
 @router.get("/comments/me", response_model=CommentListResponse)
