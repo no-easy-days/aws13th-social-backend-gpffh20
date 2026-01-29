@@ -175,18 +175,22 @@ async def get_posts_mine(user_id: CurrentUserId, db: DBSession, page: Page = 1) 
 async def flush_view_counts():
     redis = await get_redis()
     keys = await redis.keys("views:*")
-    for key in keys:
-        post_id = key.split(":")[1]
-        count = await redis.getdel(key)
 
-        if count:
-            async with AsyncSessionLocal() as db:
+    if not keys:
+        return
+
+    async with AsyncSessionLocal() as db:
+        for key in keys:
+            post_id = key.split(":")[1]
+            count = await redis.getdel(key)
+
+            if count:
                 await db.execute(
                     update(Post)
                     .where(Post.id == post_id)
                     .values(view_count=Post.view_count + int(count))
                 )
-                await db.commit()
+        await db.commit()
 
 
 async def view_count_scheduler(interval_seconds: int = 300):
