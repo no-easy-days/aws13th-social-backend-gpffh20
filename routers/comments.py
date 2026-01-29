@@ -17,12 +17,34 @@ COMMENT_PAGE_SIZE = 10
 
 # TODO: COUNT(*) -> redis 연결로 성능 개선
 
-# UPDATE 허용 필드 whitelist
-ALLOWED_COMMENT_UPDATE_FIELDS = frozenset(["content"])
-
 router = APIRouter(
     tags=["COMMENTS"],
 )
+
+
+async def lock_comment_for_update(db, comment_id: str, post_id: str) -> Comment:
+    """댓글 수정/삭제용 (row lock)"""
+    result = await db.execute(
+        select(Comment).
+        where(Comment.id == comment_id, Comment.post_id == post_id)
+        .with_for_update()
+    )
+    comment = result.scalar_one_or_none()
+    if comment is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Comment not found"
+        )
+    return comment
+
+
+def check_comment_author(comment: Comment, user_id: str) -> None:
+    """작성자 권한 확인 (아니면 403)"""
+    if comment.author_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized"
+        )
 
 
 @router.get("/posts/{post_id}/comments", response_model=CommentListResponse)
@@ -97,82 +119,30 @@ async def update_comment(
         comment_id: CommentId,
         user_id: CurrentUserId,
         update_data: CommentUpdateRequest,
-        cur: CurrentCursor
+        db: DBSession,
 ) -> CommentBase:
     """댓글 수정"""
-    # 댓글 조회 + 작성자 확인
-    await cur.execute(
-        """
-        SELECT id, post_id, author_id, content, created_at
-        FROM comments WHERE id = %s AND post_id = %s
-        FOR UPDATE
-        """,
-        (comment_id, post_id)
-    )
-    comment = await cur.fetchone()
+    comment = await lock_comment_for_update(db, comment_id, post_id)
+    check_comment_author(comment, user_id)
 
-    if not comment:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Comment not found"
-        )
-
-    if comment["author_id"] != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to modify this comment"
-        )
-
-    # whitelist 검증
     update_fields = update_data.model_dump(exclude_unset=True)
-    field_keys = frozenset(update_fields.keys())
-    if not field_keys.issubset(ALLOWED_COMMENT_UPDATE_FIELDS):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid update fields: {field_keys}"
-        )
+    for field, value in update_fields.items():
+        setattr(comment, field, value)
 
-    await cur.execute(
-        "UPDATE comments SET content = %(content)s WHERE id = %(comment_id)s AND author_id = %(author_id)s",
-        {"content": update_data.content, "comment_id": comment_id, "author_id": user_id}
-    )
-    if cur.rowcount == 0:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Comment not found"
-        )
+    await db.flush()
+    await db.refresh(comment)
 
-    return CommentBase(
-        id=comment["id"],
-        post_id=comment["post_id"],
-        author_id=comment["author_id"],
-        content=update_data.content,
-        created_at=comment["created_at"],
-    )
+    return CommentBase.model_validate(comment)
+
+
 
 
 @router.delete("/posts/{post_id}/comments/{comment_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_comment(
         post_id: PostId, comment_id: CommentId, user_id: CurrentUserId, db: DBSession) -> None:
     """댓글 삭제"""
-    result = await db.execute(
-        select(Comment)
-        .where(Comment.id == comment_id, Comment.post_id == post_id)
-        .with_for_update()
-    )
-    comment = result.scalar_one_or_none()
-
-    if not comment:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Comment not found"
-        )
-
-    if comment.author_id != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to delete this comment"
-        )
+    comment = await lock_comment_for_update(db, comment_id, post_id)
+    check_comment_author(comment, user_id)
 
     await db.delete(comment)
 
