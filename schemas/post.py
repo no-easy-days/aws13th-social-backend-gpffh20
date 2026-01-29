@@ -38,7 +38,7 @@ class PostListItem(PostItemBase):
     @computed_field
     @property
     def author_nickname(self) -> str:
-        return self.author.nickname if self.author else "Unknown"
+        return getattr(self.author, "nickname", "Unknown")
 
 
 MyPostListItem = PostItemBase
