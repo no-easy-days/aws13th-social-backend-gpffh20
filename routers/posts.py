@@ -1,10 +1,10 @@
 import asyncio
 import uuid
+import logging
 from datetime import datetime, UTC
 
 from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy import select, func, or_, update
-from sqlalchemy.ext.asyncio import async_session
 from db.models.post import Post
 from db.session import AsyncSessionLocal
 from routers.users import CurrentUserId
@@ -25,6 +25,7 @@ from utils.redis import get_redis
 
 PAGE_SIZE = 20
 ALLOWED_SORT_FIELDS = frozenset({"created_at", "view_count", "like_count"})
+logger = logging.getLogger(__name__)
 
 
 def get_order_by(sort: str, order: str) -> list:
@@ -198,9 +199,9 @@ async def view_count_scheduler(interval_seconds: int = 300):
         await asyncio.sleep(interval_seconds)
         try:
             await flush_view_counts()
-            print(f"[Scheduler] View count flushed")
+            logger.info(f"[Scheduler] View count flushed")
         except Exception as e:
-            print(f"[Scheduler] View count failed: {e}")
+            logger.error(f"[Scheduler] View count failed: {e}", exc_info=True)
 
 
 async def get_cached_view_count(post_id: str) -> int:
