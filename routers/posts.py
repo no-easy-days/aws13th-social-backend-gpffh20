@@ -174,7 +174,7 @@ async def get_posts_mine(user_id: CurrentUserId, db: DBSession, page: Page = 1) 
 
 
 async def flush_view_counts():
-    redis = await get_redis()
+    redis = get_redis()
     keys = await redis.keys("views:*")
 
     if not keys:
@@ -205,7 +205,7 @@ async def view_count_scheduler(interval_seconds: int = 300):
 
 
 async def get_cached_view_count(post_id: str) -> int:
-    redis = await get_redis()
+    redis = get_redis()
     count = await redis.get(f"views:{post_id}")
     return int(count) if count else 0
 
