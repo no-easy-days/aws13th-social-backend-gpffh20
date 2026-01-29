@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from db.models.user import User
+    from db.models.comment import Comment
 
 
 class Post(Base):
@@ -24,5 +25,6 @@ class Post(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
-    author: Mapped["User | None"] = relationship(lazy="selectin")
+    author: Mapped["User | None"] = relationship(back_populates="posts", lazy="selectin")
+    comments: Mapped[list["Comment"]] = relationship(back_populates="post", lazy="selectin")
     
