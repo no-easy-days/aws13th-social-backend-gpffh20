@@ -1,9 +1,10 @@
 import uuid
 
 from fastapi import APIRouter, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from db.models.comment import Comment
+from db.models.post import Post
 from routers.users import CurrentUserId
 from schemas.commons import PostId, Page, CommentId, Pagination, CurrentCursor, DBSession
 from schemas.comment import (
@@ -48,48 +49,33 @@ def check_comment_author(comment: Comment, user_id: str) -> None:
 
 
 @router.get("/posts/{post_id}/comments", response_model=CommentListResponse)
-async def get_comments(post_id: PostId, cur: CurrentCursor, page: Page = 1) -> CommentListResponse:
+async def get_comments(post_id: PostId, db: DBSession, page: Page = 1) -> CommentListResponse:
     """게시글의 댓글 목록 조회"""
-    # 게시글 존재 확인
-    await cur.execute(
-        "SELECT id FROM posts WHERE id = %s",
-        (post_id,)
-    )
-    if not await cur.fetchone():
+    # 게시글 존재 확인 + comment_count 조회
+    result = await db.execute(select(Post).where(Post.id == post_id))
+    post = result.scalar_one_or_none()
+    if not post:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Post not found"
         )
 
     offset = (page - 1) * COMMENT_PAGE_SIZE
-
-    # 총 개수 조회
-    await cur.execute(
-        "SELECT comment_count as total FROM posts WHERE id = %s",
-        (post_id,)
-    )
-    total_count = (await cur.fetchone())["total"]
+    total_count = post.comment_count
     total_pages = (total_count + COMMENT_PAGE_SIZE - 1) // COMMENT_PAGE_SIZE or 1
 
     # 댓글 목록 조회 (최신순)
-    await cur.execute(
-        """
-        SELECT id, post_id, author_id, content, created_at
-        FROM comments
-        WHERE post_id = %(post_id)s
-        ORDER BY created_at DESC
-        LIMIT %(page_size)s OFFSET %(offset)s
-        """,
-        {
-            "post_id": post_id,
-            "page_size": COMMENT_PAGE_SIZE,
-            "offset": offset
-        }
+    result = await db.execute(
+        select(Comment)
+        .where(Comment.post_id == post_id)
+        .order_by(Comment.created_at.desc())
+        .limit(COMMENT_PAGE_SIZE)
+        .offset(offset)
     )
-    comments = await cur.fetchall()
+    comments = result.scalars().all()
 
     return CommentListResponse(
-        data=[CommentBase(**c) for c in comments],
+        data=[CommentBase.model_validate(c) for c in comments],
         pagination=Pagination(page=page, total=total_pages)
     )
 
