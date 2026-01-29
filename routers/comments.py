@@ -6,7 +6,7 @@ from sqlalchemy import select, func
 from db.models.comment import Comment
 from db.models.post import Post
 from routers.users import CurrentUserId
-from schemas.commons import PostId, Page, CommentId, Pagination, CurrentCursor, DBSession
+from schemas.commons import PostId, Page, CommentId, Pagination, DBSession
 from schemas.comment import (
     CommentCreateRequest,
     CommentBase,
@@ -134,32 +134,28 @@ async def delete_comment(
 
 
 @router.get("/comments/me", response_model=CommentListResponse)
-async def get_comments_mine(user_id: CurrentUserId, cur: CurrentCursor, page: Page = 1) -> CommentListResponse:
+async def get_comments_mine(user_id: CurrentUserId, db: DBSession, page: Page = 1) -> CommentListResponse:
     """내가 작성한 댓글 목록"""
     offset = (page - 1) * COMMENT_PAGE_SIZE
 
     # 총 개수 조회
-    await cur.execute(
-        "SELECT COUNT(*) as total FROM comments WHERE author_id = %s",
-        (user_id,)
+    count_result = await db.execute(
+        select(func.count()).select_from(Comment).where(Comment.author_id == user_id)
     )
-    total_count = (await cur.fetchone())["total"]
+    total_count = count_result.scalar()
     total_pages = (total_count + COMMENT_PAGE_SIZE - 1) // COMMENT_PAGE_SIZE or 1
 
     # 내 댓글 목록 조회 (최신순)
-    await cur.execute(
-        """
-        SELECT id, post_id, author_id, content, created_at
-        FROM comments
-        WHERE author_id = %s
-        ORDER BY created_at DESC
-        LIMIT %s OFFSET %s
-        """,
-        (user_id, COMMENT_PAGE_SIZE, offset)
+    result = await db.execute(
+        select(Comment)
+        .where(Comment.author_id == user_id)
+        .order_by(Comment.created_at.desc())
+        .limit(COMMENT_PAGE_SIZE)
+        .offset(offset)
     )
-    comments = await cur.fetchall()
+    comments = result.scalars().all()
 
     return CommentListResponse(
-        data=[CommentBase(**c) for c in comments],
+        data=[CommentBase.model_validate(c) for c in comments],
         pagination=Pagination(page=page, total=total_pages)
     )
