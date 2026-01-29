@@ -19,7 +19,7 @@ async def close_redis_pool():
         redis_client = None
 
 
-def get_redis() -> redis.Redis:
+async def get_redis() -> redis.Redis:
     if redis_client is None:
         raise RuntimeError("redis not initialized")
     return redis_client

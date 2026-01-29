@@ -205,7 +205,7 @@ async def view_count_scheduler(interval_seconds: int = 300):
 
 
 async def get_cached_view_count(post_id: str) -> int:
-    redis = get_redis()
+    redis = await get_redis()
     count = await redis.get(f"views:{post_id}")
     return int(count) if count else 0
 
