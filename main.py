@@ -1,12 +1,10 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from sched import scheduler
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from redis.background import BackgroundScheduler
 
 from config import settings
 from routers import users, posts, comments, likes
@@ -25,7 +23,14 @@ async def lifespan(app: FastAPI):
     scheduler_task = asyncio.create_task(view_count_scheduler(600))
 
     yield
+
     scheduler_task.cancel()
+    try:
+        await scheduler_task
+    except asyncio.CancelledError:
+        from routers.posts import flush_view_counts
+        await flush_view_counts()
+        logger.info("Final view count flush completed")
     await close_db_pool()
     await close_redis_pool()
     await engine.dispose()
