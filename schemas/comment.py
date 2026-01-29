@@ -13,6 +13,8 @@ class CommentCreateRequest(BaseModel):
 
 class CommentBase(BaseModel):
     """댓글 생성/조회에서 공통으로 쓰는 필드"""
+    model_config = ConfigDict(from_attributes=True)
+
     id: CommentId
     post_id: PostId
     author_id: UserId

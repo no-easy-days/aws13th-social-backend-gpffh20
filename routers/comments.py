@@ -4,8 +4,9 @@ from datetime import datetime, UTC
 from fastapi import APIRouter, HTTPException, status
 from aiomysql import IntegrityError
 
+from db.models.comment import Comment
 from routers.users import CurrentUserId
-from schemas.commons import PostId, Page, CommentId, Pagination, CurrentCursor
+from schemas.commons import PostId, Page, CommentId, Pagination, CurrentCursor, DBSession
 from schemas.comment import (
     CommentCreateRequest,
     CommentBase,
@@ -75,37 +76,20 @@ async def get_comments(post_id: PostId, cur: CurrentCursor, page: Page = 1) -> C
 @router.post("/posts/{post_id}/comments", response_model=CommentBase,
              status_code=status.HTTP_201_CREATED)
 async def create_comment(
-        post_id: PostId, user_id: CurrentUserId, comment: CommentCreateRequest, cur: CurrentCursor) -> CommentBase:
+        post_id: PostId, user_id: CurrentUserId, comment: CommentCreateRequest, db: DBSession) -> CommentBase:
     """댓글 작성"""
-    comment_id = f"comment_{uuid.uuid4().hex}"
-    now = datetime.now(UTC)
-
-    try:
-        await cur.execute(
-            """
-            INSERT INTO comments (id, post_id, author_id, content, created_at)
-            VALUES (%(comment_id)s, %(post_id)s, %(author_id)s, %(content)s, %(created_at)s)
-            """,
-            {
-                "comment_id": comment_id,
-                "post_id": post_id,
-                "author_id": user_id,
-                "content": comment.content,
-                "created_at": now
-            }
-        )
-    except IntegrityError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Post not found"
-        )
-    return CommentBase(
-        id=comment_id,
+    new_comment = Comment(
+        id=f"comment_{uuid.uuid4().hex}",
         post_id=post_id,
         author_id=user_id,
         content=comment.content,
-        created_at=now,
     )
+
+    db.add(new_comment)
+    await db.flush()
+    await db.refresh(new_comment)
+
+    return CommentBase.model_validate(new_comment)
 
 
 @router.patch("/posts/{post_id}/comments/{comment_id}", response_model=CommentBase)

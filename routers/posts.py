@@ -129,19 +129,16 @@ async def get_posts(db: DBSession, query: ListPostsQuery = Depends()) -> ListPos
              status_code=status.HTTP_201_CREATED)
 async def create_post(author_id: CurrentUserId, post: PostCreateRequest, db: DBSession) -> PostCreateResponse:
     """ 게시글 생성 """
-    now = datetime.now(UTC)
-
     new_post = Post(
         id=f"post_{uuid.uuid4().hex}",
         author_id=author_id,
         title=post.title,
         content=post.content,
-        created_at=now,
-        updated_at=now,
     )
 
     db.add(new_post)
     await db.flush()
+    await db.refresh(new_post)
 
     return PostCreateResponse.model_validate(new_post)
 
