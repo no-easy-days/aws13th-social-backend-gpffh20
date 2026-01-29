@@ -215,8 +215,7 @@ async def get_single_post(post_id: PostId, db: DBSession) -> PostDetail:
     """게시글 상세 조회"""
     post = await get_post_with_author(db, post_id)
     redis = get_redis()
-    await redis.incr(f"views:{post_id}")
-    cached_views = await get_cached_view_count(post_id)
+    cached_views = await redis.incr(f"views:{post_id}")
 
     response = PostDetail.model_validate(post)
     response.view_count = post.view_count + cached_views
