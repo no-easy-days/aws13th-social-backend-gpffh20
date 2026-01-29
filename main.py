@@ -9,6 +9,7 @@ from config import settings
 from routers import users, posts, comments, likes
 from db.session import engine
 from utils.database import init_db_pool, close_db_pool
+from utils.redis import init_redis_pool, close_redis_pool
 
 logger = logging.getLogger(__name__)
 
@@ -16,8 +17,10 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db_pool()
+    await init_redis_pool()
     yield
     await close_db_pool()
+    await close_redis_pool()
     await engine.dispose()
 
 

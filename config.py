@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     db_url: str
     db_echo: bool = False
 
+    redis_url: str
+
     cors_origins: list[str]
 
 settings = Settings()
