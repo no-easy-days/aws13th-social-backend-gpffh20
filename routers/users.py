@@ -1,15 +1,14 @@
 import uuid
 from datetime import datetime, UTC, timedelta
-from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, status, Depends, Response, Cookie, Request
+from fastapi import APIRouter, HTTPException, status, Response, Cookie, Request
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select, delete
 
 from config import settings
 from db.models.user import User
 from db.models.user_session import UserSession
-from schemas.commons import UserId, DBSession
+from schemas.commons import UserId, DBSession, CurrentUserId
 from schemas.user import (
     UserMyProfile,
     UserUpdateRequest, UserProfile,
@@ -18,21 +17,12 @@ from schemas.user import (
 )
 from utils.auth import (
     hash_password, verify_password, create_access_token, create_refresh_token,
-    decode_token, DUMMY_HASH, get_current_user_id, hash_token
+    decode_token, DUMMY_HASH, hash_token
 )
 
 router = APIRouter(
     tags=["USERS"],
 )
-
-CurrentUserId = Annotated[str, Depends(get_current_user_id)]
-ALLOWED_PROFILE_UPDATE_FIELDS = frozenset(["nickname", "profile_img"])
-
-PROFILE_SET_CLAUSE_MAP = {
-    frozenset(["nickname"]): "nickname = %(nickname)s",
-    frozenset(["profile_img"]): "profile_img = %(profile_img)s",
-    frozenset(["nickname", "profile_img"]): "nickname = %(nickname)s, profile_img = %(profile_img)s",
-}
 
 
 @router.post("/users", response_model=UserCreateResponse,
@@ -165,7 +155,7 @@ async def refresh_access_token(
     # 새 refresh token으로 업데이트 + last_used_at 갱신
     session.refresh_token = hash_token(new_refresh_token)
     now = datetime.now(UTC)
-    if now - session.last_used_at > timedelta(hours=1):
+    if session.last_used_at is None or now - session.last_used_at > timedelta(hours=1):
         session.last_used_at = now
 
     # 새 refresh token을 쿠키에 설정 (원본)

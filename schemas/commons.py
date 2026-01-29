@@ -6,6 +6,7 @@ from pydantic import Field, BaseModel, StringConstraints
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.session import get_db
+from utils.auth import get_current_user_id
 from utils.database import get_cursor
 
 UserId = Annotated[
@@ -56,6 +57,7 @@ CurrentCursor = Annotated[Cursor, Depends(get_cursor)]
 
 DBSession = Annotated[AsyncSession, Depends(get_db)]
 
+CurrentUserId = Annotated[str, Depends(get_current_user_id)]
 
 class Pagination(BaseModel):
     page: Page

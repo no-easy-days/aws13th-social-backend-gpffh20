@@ -7,8 +7,7 @@ from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy import select, func, or_, update
 from db.models.post import Post
 from db.session import AsyncSessionLocal
-from routers.users import CurrentUserId
-from schemas.commons import Page, PostId, Pagination, DBSession
+from schemas.commons import Page, PostId, Pagination, DBSession, CurrentUserId
 from schemas.post import (
     ListPostsQuery,
     PostCreateRequest,
@@ -43,20 +42,6 @@ def get_order_by(sort: str, order: str) -> list:
 router = APIRouter(
     tags=["POSTS"],
 )
-
-
-async def get_post_with_author(db, post_id: str) -> Post:
-    """게시글 상세 조회용 (author JOIN)"""
-    result = await db.execute(
-        select(Post).where(Post.id == post_id)
-    )
-    post = result.scalar_one_or_none()
-    if post is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Post not found"
-        )
-    return post
 
 
 async def lock_post_for_update(db, post_id: str) -> Post:
@@ -208,16 +193,19 @@ async def view_count_scheduler(interval_seconds: int = 300):
             logger.error(f"[Scheduler] View count failed: {e}", exc_info=True)
 
 
-async def get_cached_view_count(post_id: str) -> int:
-    redis = get_redis()
-    count = await redis.get(f"views:{post_id}")
-    return int(count) if count else 0
-
-
 @router.get("/posts/{post_id}", response_model=PostDetail)
 async def get_single_post(post_id: PostId, db: DBSession) -> PostDetail:
     """게시글 상세 조회"""
-    post = await get_post_with_author(db, post_id)
+    result = await db.execute(
+        select(Post).where(Post.id == post_id)
+    )
+    post = result.scalar_one_or_none()
+    if post is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Post not found"
+        )
+
     redis = get_redis()
     cached_views = await redis.incr(f"views:{post_id}")
 
