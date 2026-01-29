@@ -1,4 +1,4 @@
-from datetime import datetime as dt
+from datetime import datetime
 
 from sqlalchemy import String, DateTime, func, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
@@ -13,5 +13,5 @@ class UserSession(Base):
     user_id: Mapped[str] = mapped_column(String(40), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     refresh_token: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     device_info: Mapped[str] = mapped_column(String(255), nullable=False)
-    created_at: Mapped[dt] = mapped_column(DateTime, server_default=func.now())
-    last_used_at: Mapped[dt] = mapped_column(DateTime, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    last_used_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

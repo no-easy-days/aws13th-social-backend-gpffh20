@@ -1,8 +1,8 @@
 from datetime import datetime
 from enum import Enum
-from typing import Annotated
+from typing import Annotated, Any
 
-from pydantic import StringConstraints, BaseModel, Field, model_validator, ConfigDict
+from pydantic import StringConstraints, BaseModel, Field, model_validator, ConfigDict, computed_field
 
 from schemas.commons import PostId, UserId, Pagination, Page, Content, Title, Count
 
@@ -18,14 +18,30 @@ class SortOrder(str, Enum):
     DESC = "desc"
 
 
-class PostListItem(BaseModel):
+class PostItemBase(BaseModel):
+    """게시글 목록 아이템 기본 스키마"""
+    model_config = ConfigDict(from_attributes=True)
+
     id: PostId
-    author_id: UserId
+    author_id: UserId | None
     title: Title
     view_count: Count = 0
     like_count: Count = 0
     comment_count: Count = 0
     created_at: datetime
+
+
+class PostListItem(PostItemBase):
+    """게시글 목록 아이템 (author_nickname 포함)"""
+    author: Any = Field(exclude=True)
+
+    @computed_field
+    @property
+    def author_nickname(self) -> str:
+        return getattr(self.author, "nickname", "Unknown")
+
+
+MyPostListItem = PostItemBase
 
 
 class PostDetail(PostListItem):
@@ -51,11 +67,22 @@ class ListPostsResponse(BaseModel):
     pagination: Pagination
 
 
+class MyPostsResponse(BaseModel):
+    data: list[MyPostListItem]
+    pagination: Pagination
+
+
 class PostCreateRequest(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
     title: Title
     content: Content
+
+
+class PostCreateResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: PostId
 
 
 class PostUpdateRequest(BaseModel):
