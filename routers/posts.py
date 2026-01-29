@@ -175,7 +175,14 @@ async def get_posts_mine(user_id: CurrentUserId, db: DBSession, page: Page = 1) 
 
 async def flush_view_counts():
     redis = get_redis()
-    keys = await redis.keys("views:*")
+    cursor = 0
+    keys = []
+
+    while True:
+        cursor, partial_keys = await redis.scan(cursor, match="views:*", count=100)
+        keys.extend(partial_keys)
+        if cursor == 0:
+            break
 
     if not keys:
         return
