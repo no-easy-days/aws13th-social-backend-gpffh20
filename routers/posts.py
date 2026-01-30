@@ -95,8 +95,7 @@ async def get_posts(db: DBSession, query: ListPostsQuery = Depends()) -> ListPos
     count_query = select(func.count()).select_from(Post)
     if where_condition is not None:
         count_query = count_query.where(where_condition)
-    count_result = await db.execute(count_query)
-    total_count = count_result.scalar()
+    total_count = (await db.execute(count_query)).scalar()
     total_pages = (total_count + PAGE_SIZE - 1) // PAGE_SIZE or 1
 
     # 게시글 목록 조회
@@ -139,10 +138,10 @@ async def get_posts_mine(user_id: CurrentUserId, db: DBSession, page: Page = 1) 
     offset = (page - 1) * PAGE_SIZE
 
     # 총 개수 조회
-    total_count = await db.execute(
+    total_count = (await db.execute(
         select(func.count()).select_from(Post).where(Post.author_id == user_id)
-    )
-    total_pages = (total_count.scalar() + PAGE_SIZE - 1) // PAGE_SIZE or 1
+    )).scalar()
+    total_pages = (total_count + PAGE_SIZE - 1) // PAGE_SIZE or 1
 
     # 내 게시글 목록 조회
     result = await db.execute(

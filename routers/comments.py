@@ -142,10 +142,9 @@ async def get_comments_mine(user_id: CurrentUserId, db: DBSession, page: Page = 
     offset = (page - 1) * COMMENT_PAGE_SIZE
 
     # 총 개수 조회
-    count_result = await db.execute(
+    total_count = (await db.execute(
         select(func.count()).select_from(Comment).where(Comment.author_id == user_id)
-    )
-    total_count = count_result.scalar()
+    )).scalar()
     total_pages = (total_count + COMMENT_PAGE_SIZE - 1) // COMMENT_PAGE_SIZE or 1
 
     # 내 댓글 목록 조회 (최신순)
