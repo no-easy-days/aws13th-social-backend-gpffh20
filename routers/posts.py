@@ -217,7 +217,11 @@ async def get_single_post(post_id: PostId, db: DBSession) -> PostDetail:
         )
 
     redis = get_redis()
-    cached_views = await redis.incr(f"views:{post_id}")
+    try:
+        cached_views = await redis.incr(f"views:{post_id}")
+    except Exception as e:
+        logger.warning(f"Redis incr failed: {e}")
+        cached_views = 0
 
     response = PostDetail.model_validate(post)
     response.view_count = post.view_count + cached_views
