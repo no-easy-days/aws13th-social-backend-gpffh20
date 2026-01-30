@@ -23,6 +23,7 @@ class Post(Base):
     like_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     comment_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    # onupdate 미사용: 조회수/좋아요수 증가 시에도 트리거되므로, 콘텐츠 수정 시에만 애플리케이션에서 수동 갱신
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     author: Mapped["User | None"] = relationship(back_populates="posts", lazy="noload")
