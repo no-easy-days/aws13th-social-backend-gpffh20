@@ -175,7 +175,10 @@ async def flush_view_counts():
 
     async with AsyncSessionLocal() as db:
         for key in keys:
-            post_id = key.split(":")[1]
+            parts = key.split(":")
+            if len(parts) != 2 or parts[0] != "views":
+                continue
+            post_id = parts[1]
             count = await redis.getdel(key)
 
             if count:
