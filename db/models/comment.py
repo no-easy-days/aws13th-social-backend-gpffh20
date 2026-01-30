@@ -22,4 +22,8 @@ class Comment(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     author: Mapped["User | None"] = relationship(back_populates="comments", lazy="selectin")
-    post: Mapped["Post"] = relationship(back_populates="comments", lazy="selectin")
+    post: Mapped["Post"] = relationship(back_populates="comments", lazy="noload")
+
+    @property
+    def author_nickname(self) -> str | None:
+        return self.author.nickname if self.author else None

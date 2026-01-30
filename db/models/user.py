@@ -22,5 +22,5 @@ class User(Base):
     profile_img: Mapped[str | None] = mapped_column(String(500))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
-    posts: Mapped[list["Post"]] = relationship(back_populates="author", lazy="selectin")
-    comments: Mapped[list["Comment"]] = relationship(back_populates="author", lazy="selectin")
+    posts: Mapped[list["Post"]] = relationship(back_populates="author", lazy="noload")
+    comments: Mapped[list["Comment"]] = relationship(back_populates="author", lazy="noload")

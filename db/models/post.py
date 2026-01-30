@@ -25,5 +25,5 @@ class Post(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
-    author: Mapped["User | None"] = relationship(back_populates="posts", lazy="selectin")
-    comments: Mapped[list["Comment"]] = relationship(back_populates="post", lazy="selectin")
+    author: Mapped["User | None"] = relationship(back_populates="posts", lazy="noload")
+    comments: Mapped[list["Comment"]] = relationship(back_populates="post", lazy="noload")

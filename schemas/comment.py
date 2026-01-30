@@ -17,7 +17,8 @@ class CommentBase(BaseModel):
 
     id: CommentId
     post_id: PostId
-    author_id: UserId
+    author_id: UserId | None
+    author_nickname: str | None
     content: Content
     created_at: datetime
 
