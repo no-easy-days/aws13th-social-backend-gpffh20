@@ -2,6 +2,7 @@ import uuid
 
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select, func
+from sqlalchemy.orm import joinedload
 
 from db.models.comment import Comment
 from db.models.post import Post
@@ -9,9 +10,11 @@ from routers.users import CurrentUserId
 from schemas.commons import PostId, Page, CommentId, Pagination, DBSession
 from schemas.comment import (
     CommentCreateRequest,
-    CommentBase,
+    CommentItemBase,
+    CommentListItem,
     CommentUpdateRequest,
     CommentListResponse,
+    MyCommentListResponse,
 )
 
 COMMENT_PAGE_SIZE = 10
@@ -66,23 +69,24 @@ async def get_comments(post_id: PostId, db: DBSession, page: Page = 1) -> Commen
     # 댓글 목록 조회 (최신순)
     result = await db.execute(
         select(Comment)
+        .options(joinedload(Comment.author))
         .where(Comment.post_id == post_id)
         .order_by(Comment.created_at.desc())
         .limit(COMMENT_PAGE_SIZE)
         .offset(offset)
     )
-    comments = result.scalars().all()
+    comments = result.unique().scalars().all()
 
     return CommentListResponse(
-        data=[CommentBase.model_validate(c) for c in comments],
+        data=[CommentListItem.model_validate(c) for c in comments],
         pagination=Pagination(page=page, total=total_pages)
     )
 
 
-@router.post("/posts/{post_id}/comments", response_model=CommentBase,
+@router.post("/posts/{post_id}/comments", response_model=CommentListItem,
              status_code=status.HTTP_201_CREATED)
 async def create_comment(
-        post_id: PostId, user_id: CurrentUserId, comment: CommentCreateRequest, db: DBSession) -> CommentBase:
+        post_id: PostId, user_id: CurrentUserId, comment: CommentCreateRequest, db: DBSession) -> CommentListItem:
     """댓글 작성"""
     new_comment = Comment(
         id=f"comment_{uuid.uuid4().hex}",
@@ -93,19 +97,19 @@ async def create_comment(
 
     db.add(new_comment)
     await db.flush()
-    await db.refresh(new_comment)
+    await db.refresh(new_comment, ["author"])
 
-    return CommentBase.model_validate(new_comment)
+    return CommentListItem.model_validate(new_comment)
 
 
-@router.patch("/posts/{post_id}/comments/{comment_id}", response_model=CommentBase)
+@router.patch("/posts/{post_id}/comments/{comment_id}", response_model=CommentListItem)
 async def update_comment(
         post_id: PostId,
         comment_id: CommentId,
         user_id: CurrentUserId,
         update_data: CommentUpdateRequest,
         db: DBSession,
-) -> CommentBase:
+) -> CommentListItem:
     """댓글 수정"""
     comment = await lock_comment_for_update(db, comment_id, post_id)
     check_comment_author(comment, user_id)
@@ -115,9 +119,9 @@ async def update_comment(
         setattr(comment, field, value)
 
     await db.flush()
-    await db.refresh(comment)
+    await db.refresh(comment, ["author"])
 
-    return CommentBase.model_validate(comment)
+    return CommentListItem.model_validate(comment)
 
 
 
@@ -132,8 +136,8 @@ async def delete_comment(
     await db.delete(comment)
 
 
-@router.get("/comments/me", response_model=CommentListResponse)
-async def get_comments_mine(user_id: CurrentUserId, db: DBSession, page: Page = 1) -> CommentListResponse:
+@router.get("/comments/me", response_model=MyCommentListResponse)
+async def get_comments_mine(user_id: CurrentUserId, db: DBSession, page: Page = 1) -> MyCommentListResponse:
     """내가 작성한 댓글 목록"""
     offset = (page - 1) * COMMENT_PAGE_SIZE
 
@@ -154,7 +158,7 @@ async def get_comments_mine(user_id: CurrentUserId, db: DBSession, page: Page = 
     )
     comments = result.scalars().all()
 
-    return CommentListResponse(
-        data=[CommentBase.model_validate(c) for c in comments],
+    return MyCommentListResponse(
+        data=[CommentItemBase.model_validate(c) for c in comments],
         pagination=Pagination(page=page, total=total_pages)
     )

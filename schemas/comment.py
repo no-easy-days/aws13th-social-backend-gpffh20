@@ -11,16 +11,23 @@ class CommentCreateRequest(BaseModel):
     content: Content
 
 
-class CommentBase(BaseModel):
-    """댓글 생성/조회에서 공통으로 쓰는 필드"""
+class CommentItemBase(BaseModel):
+    """댓글 기본 필드"""
     model_config = ConfigDict(from_attributes=True)
 
     id: CommentId
     post_id: PostId
     author_id: UserId | None
-    author_nickname: str | None
     content: Content
     created_at: datetime
+
+
+class CommentListItem(CommentItemBase):
+    """게시글 댓글 목록용 (author_nickname 포함)"""
+    author_nickname: str | None
+
+
+MyCommentListItem = CommentItemBase
 
 
 class CommentUpdateRequest(BaseModel):
@@ -29,9 +36,13 @@ class CommentUpdateRequest(BaseModel):
     content: Content
 
 
-# CommentUpdateResponse = CommentBase
-
-
 class CommentListResponse(BaseModel):
-    data: list[CommentBase]
+    """게시글 댓글 목록 응답"""
+    data: list[CommentListItem]
+    pagination: Pagination
+
+
+class MyCommentListResponse(BaseModel):
+    """내 댓글 목록 응답"""
+    data: list[MyCommentListItem]
     pagination: Pagination

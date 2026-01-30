@@ -21,7 +21,7 @@ class Comment(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
-    author: Mapped["User | None"] = relationship(back_populates="comments", lazy="selectin")
+    author: Mapped["User | None"] = relationship(back_populates="comments", lazy="noload")
     post: Mapped["Post"] = relationship(back_populates="comments", lazy="noload")
 
     @property
