@@ -25,13 +25,14 @@ router = APIRouter(
 )
 
 
-async def lock_comment_for_update(db, comment_id: str, post_id: str) -> Comment:
+async def lock_comment_for_update(db, comment_id: str, post_id: str, load_author: bool = False) -> Comment:
     """댓글 수정/삭제용 (row lock)"""
-    result = await db.execute(
-        select(Comment).
-        where(Comment.id == comment_id, Comment.post_id == post_id)
-        .with_for_update()
-    )
+    query = select(Comment).where(Comment.id == comment_id, Comment.post_id == post_id)
+    if load_author:
+        query = query.options(joinedload(Comment.author))
+    query = query.with_for_update()
+
+    result = await db.execute(query)
     comment = result.scalar_one_or_none()
     if comment is None:
         raise HTTPException(
@@ -83,6 +84,16 @@ async def get_comments(post_id: PostId, db: DBSession, page: Page = 1) -> Commen
     )
 
 
+async def get_comment_with_author(db, comment_id: str) -> Comment:
+    """댓글 + author 조회"""
+    result = await db.execute(
+        select(Comment)
+        .options(joinedload(Comment.author))
+        .where(Comment.id == comment_id)
+    )
+    return result.scalar_one()
+
+
 @router.post("/posts/{post_id}/comments", response_model=CommentListItem,
              status_code=status.HTTP_201_CREATED)
 async def create_comment(
@@ -97,9 +108,9 @@ async def create_comment(
 
     db.add(new_comment)
     await db.flush()
-    await db.refresh(new_comment, ["author"])
 
-    return CommentListItem.model_validate(new_comment)
+    comment_with_author = await get_comment_with_author(db, new_comment.id)
+    return CommentListItem.model_validate(comment_with_author)
 
 
 @router.patch("/posts/{post_id}/comments/{comment_id}", response_model=CommentListItem)
@@ -111,7 +122,7 @@ async def update_comment(
         db: DBSession,
 ) -> CommentListItem:
     """댓글 수정"""
-    comment = await lock_comment_for_update(db, comment_id, post_id)
+    comment = await lock_comment_for_update(db, comment_id, post_id, load_author=True)
     check_comment_author(comment, user_id)
 
     update_fields = update_data.model_dump(exclude_unset=True)
@@ -119,7 +130,6 @@ async def update_comment(
         setattr(comment, field, value)
 
     await db.flush()
-    await db.refresh(comment, ["author"])
 
     return CommentListItem.model_validate(comment)
 
